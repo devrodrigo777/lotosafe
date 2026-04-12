@@ -6,6 +6,15 @@ export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
   return {
     plugins: [react()],
+    build: {
+      // Adicione esta linha abaixo para suportar seletores modernos como :is()
+      target: 'esnext' ,
+      rollupOptions: {
+        external: [
+          /.*\.woff2/ // Isso diz ao Rollup para não tentar resolver arquivos de fonte no build
+        ]
+      }
+    },
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
     },

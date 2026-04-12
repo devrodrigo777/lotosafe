@@ -6,6 +6,7 @@ export default {
       features: {
         'oklch-query': true,
         'color-functional-notation': true,
+        'custom-selectors': false,
       },
     },
   },
