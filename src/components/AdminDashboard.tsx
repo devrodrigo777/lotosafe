@@ -174,15 +174,20 @@ export const AdminDashboard = ({ companyId }: { companyId: string }) => {
 
   const handleUpdateLocation = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("Updating location for company:", companyId, locationSettings);
     setUpdatingLocation(true);
     try {
       await updateDoc(doc(db, 'companies', companyId), {
-        location: locationSettings
+        location: {
+          lat: Number(locationSettings.lat),
+          lng: Number(locationSettings.lng),
+          radius: Number(locationSettings.radius)
+        }
       });
       toast.success("Localização atualizada com sucesso!");
       fetchCompanyData();
     } catch (err) {
-      console.error(err);
+      console.error("Error updating location:", err);
       toast.error("Erro ao atualizar localização");
     } finally {
       setUpdatingLocation(false);
@@ -420,7 +425,7 @@ export const AdminDashboard = ({ companyId }: { companyId: string }) => {
                            </div>
                          </div>
                        </div>
-                       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                       <div className="flex items-center gap-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                          <Button 
                            variant="ghost" 
                            size="icon" 

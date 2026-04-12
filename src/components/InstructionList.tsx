@@ -20,7 +20,7 @@ import { useNavigate } from 'react-router-dom';
 
 export const InstructionList = () => {
   const navigate = useNavigate();
-  const { currentCompany, location } = useLocation();
+  const { currentCompanies, location } = useLocation();
   const { user } = useAuth();
   const [instructions, setInstructions] = useState<Instruction[]>([]);
   const [search, setSearch] = useState('');
@@ -29,37 +29,43 @@ export const InstructionList = () => {
   const [showLocationModal, setShowLocationModal] = useState(false);
 
   useEffect(() => {
-    if (currentCompany) {
+    if (currentCompanies.length > 0) {
       fetchInstructions();
       logAccess();
     } else {
       setInstructions([]);
       setLoading(false);
     }
-  }, [currentCompany]);
+  }, [currentCompanies]);
 
   const logAccess = async () => {
-    if (!currentCompany) return;
-    const sessionKey = `loto_access_${currentCompany.id}_main`;
-    if (sessionStorage.getItem(sessionKey)) return;
+    if (currentCompanies.length === 0) return;
+    
+    for (const company of currentCompanies) {
+      const sessionKey = `loto_access_${company.id}_main`;
+      if (sessionStorage.getItem(sessionKey)) continue;
 
-    try {
-      await addDoc(collection(db, 'global_accesses'), {
-        companyId: currentCompany.id,
-        instructionId: 'main',
-        userId: user?.uid || 'anonymous',
-        createdAt: serverTimestamp()
-      });
-      sessionStorage.setItem(sessionKey, 'true');
-    } catch (err) {
-      console.error('Error logging access:', err);
+      try {
+        await addDoc(collection(db, 'global_accesses'), {
+          companyId: company.id,
+          instructionId: 'main',
+          userId: user?.uid || 'anonymous',
+          createdAt: serverTimestamp()
+        });
+        sessionStorage.setItem(sessionKey, 'true');
+      } catch (err) {
+        console.error('Error logging access:', err);
+      }
     }
   };
 
   const fetchInstructions = async () => {
     setLoading(true);
     try {
-      const q = query(collection(db, 'instructions'), where('companyId', '==', currentCompany?.id));
+      const companyIds = currentCompanies.map(c => c.id);
+      // Firestore 'in' query supports up to 10 items. 
+      // If there are more than 10 companies (unlikely for a single location), we'd need multiple queries.
+      const q = query(collection(db, 'instructions'), where('companyId', 'in', companyIds));
       const snap = await getDocs(q);
       setInstructions(snap.docs.map(d => ({ id: d.id, ...d.data() } as Instruction)));
     } catch (err) {
@@ -77,7 +83,7 @@ export const InstructionList = () => {
 
   const categories = ['all', ...new Set(instructions.map(i => i.category))];
 
-  if (!currentCompany) {
+  if (currentCompanies.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center px-4">
         <div className="bg-muted p-6 rounded-full mb-6">
@@ -122,7 +128,9 @@ export const InstructionList = () => {
             onClick={() => setShowLocationModal(true)}
           >
             <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-xs font-bold truncate max-w-[150px]">{currentCompany.name}</span>
+            <span className="text-xs font-bold truncate max-w-[150px]">
+              {currentCompanies.length === 1 ? currentCompanies[0].name : `${currentCompanies.length} Unidades`}
+            </span>
             <MapPin className="w-3 h-3 text-muted-foreground" />
           </div>
           <div className="relative flex-1 md:w-64">
@@ -221,15 +229,18 @@ export const InstructionList = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-6 py-4">
-            <div className="flex items-center gap-4 p-4 rounded-2xl bg-primary/5 border border-primary/10">
-              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                <Building2 className="w-6 h-6" />
+            {currentCompanies.map(company => (
+              <div key={company.id} className="flex items-center gap-4 p-4 rounded-2xl bg-primary/5 border border-primary/10">
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                  <Building2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-primary">Unidade Detectada</p>
+                  <p className="text-lg font-black text-slate-900">{company.name}</p>
+                  <p className="text-[10px] text-muted-foreground">Raio: {company.location.radius}m</p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-primary">Unidade Detectada</p>
-                <p className="text-lg font-black text-slate-900">{currentCompany.name}</p>
-              </div>
-            </div>
+            ))}
 
             <div className="grid grid-cols-2 gap-4">
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
@@ -247,7 +258,7 @@ export const InstructionList = () => {
               <div className="space-y-1">
                 <p className="text-sm font-bold text-amber-900">Perímetro Ativo</p>
                 <p className="text-xs text-amber-800/70">
-                  O acesso às instruções é permitido apenas dentro de um raio de {currentCompany.location.radius} metros desta unidade.
+                  O acesso às instruções é permitido apenas dentro do perímetro de segurança das unidades detectadas.
                 </p>
               </div>
             </div>

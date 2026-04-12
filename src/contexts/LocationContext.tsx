@@ -7,21 +7,21 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface LocationContextType {
   location: { lat: number; lng: number } | null;
-  currentCompany: Company | null;
+  currentCompanies: Company[];
   error: string | null;
   loading: boolean;
 }
 
 const LocationContext = React.createContext<LocationContextType>({
   location: null,
-  currentCompany: null,
+  currentCompanies: [],
   error: null,
   loading: true,
 });
 
 export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [currentCompany, setCurrentCompany] = useState<Company | null>(null);
+  const [currentCompanies, setCurrentCompanies] = useState<Company[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -40,24 +40,13 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         console.log(`Current Location: ${latitude}, ${longitude}`);
         console.log(`Checking ${companies.length} companies...`);
 
-        let nearest: { company: Company, distance: number } | null = null;
-        
-        const found = companies.find(c => {
+        const found = companies.filter(c => {
           const dist = calculateDistance(latitude, longitude, c.location.lat, c.location.lng);
           console.log(`Distance to ${c.name}: ${dist.toFixed(2)}m (Radius: ${c.location.radius}m)`);
-          
-          if (!nearest || dist < nearest.distance) {
-            nearest = { company: c, distance: dist };
-          }
-          
           return dist <= c.location.radius;
         });
         
-        if (!found && nearest) {
-          console.warn(`Nearest company ${nearest.company.name} is ${nearest.distance.toFixed(2)}m away (outside ${nearest.company.location.radius}m radius)`);
-        }
-
-        setCurrentCompany(found || null);
+        setCurrentCompanies(found);
         setError(null);
       } catch (err) {
         console.error('Error fetching companies:', err);
@@ -99,7 +88,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
 
   return (
-    <LocationContext.Provider value={{ location, currentCompany, error, loading }}>
+    <LocationContext.Provider value={{ location, currentCompanies, error, loading }}>
       {children}
     </LocationContext.Provider>
   );

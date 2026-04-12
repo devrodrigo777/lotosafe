@@ -23,7 +23,7 @@ import { InstructionView } from '@/components/InstructionView';
 
 function AppContent() {
   const { user, userData, loading: authLoading, isGlobalAdmin } = useAuth();
-  const { currentCompany, loading: locLoading, error: locError, location } = useLocation();
+  const { currentCompanies, loading: locLoading, error: locError, location } = useLocation();
   
   // Fallback for logged in users without a valid role/profile
   const [showProfileError, setShowProfileError] = useState(false);
@@ -112,7 +112,7 @@ function AppContent() {
                     <MapPin className="w-5 h-5 shrink-0 mt-0.5" />
                     <p className="text-sm font-medium">{locError}</p>
                   </div>
-                ) : currentCompany ? (
+                ) : currentCompanies.length > 0 ? (
                   <InstructionList />
                 ) : (
                   <div className="max-w-2xl mx-auto text-center py-20 space-y-6">
