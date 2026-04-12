@@ -157,6 +157,12 @@ export const InstructionView = () => {
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleVisitorSubmit();
+    }
+  };
+
   const handleLike = async () => {
     if (!instruction || !user) return;
     const likeId = `${user.uid}_${instruction.id}`;
@@ -211,7 +217,14 @@ export const InstructionView = () => {
         logging: false,
         backgroundColor: '#ffffff',
         windowWidth: element.scrollWidth,
-        windowHeight: element.scrollHeight
+        windowHeight: element.scrollHeight,
+        onclone: (clonedDoc) => {
+          const hideElements = clonedDoc.querySelectorAll('.pdf-hide');
+          hideElements.forEach(el => (el as HTMLElement).style.display = 'none');
+          
+          const showElements = clonedDoc.querySelectorAll('.pdf-only');
+          showElements.forEach(el => (el as HTMLElement).style.display = 'flex');
+        }
       });
       
       const imgData = canvas.toDataURL('image/png');
@@ -357,7 +370,25 @@ export const InstructionView = () => {
           </div>
 
           <div id="instruction-content" className="space-y-8 bg-white p-6 md:p-10 rounded-3xl shadow-xl border border-slate-100">
-            <div className="flex items-center justify-between border-b pb-6">
+            {/* PDF Header (Visible in PDF) */}
+            <div className="hidden pdf-only flex-col gap-4 border-b-4 border-primary pb-6 mb-6">
+              <div className="flex justify-between items-start">
+                <div className="space-y-1">
+                  <p className="text-xs font-bold uppercase tracking-widest text-primary">Unidade Industrial</p>
+                  <h2 className="text-2xl font-black text-slate-900">{company.name}</h2>
+                </div>
+                <div className="text-right">
+                  <ShieldAlert className="w-10 h-10 text-primary ml-auto" />
+                  <p className="font-black tracking-tighter text-xl">LOTO Safe</p>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Equipamento / Atividade</p>
+                <h1 className="text-3xl font-black text-slate-900">{instruction.equipmentName}</h1>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between border-b pb-6 pdf-hide">
               <div className="space-y-1">
                 <h2 className="text-xl font-bold">Instruções de Segurança</h2>
                 <p className="text-sm text-muted-foreground">Siga rigorosamente cada passo abaixo para o bloqueio seguro.</p>
@@ -388,7 +419,7 @@ export const InstructionView = () => {
                       </div>
                       
                       <div className="flex-1 space-y-4 pb-4">
-                        <p className="text-lg font-bold text-slate-800 leading-tight">{step.label}</p>
+                        <p className="text-lg font-bold text-slate-800 leading-tight whitespace-pre-wrap">{step.label}</p>
                         
                         {step.type === 'image' && step.value?.url && (
                           <div className="rounded-2xl overflow-hidden border-4 border-white shadow-lg bg-slate-100">
@@ -425,7 +456,7 @@ export const InstructionView = () => {
               ))}
             </div>
 
-            <div className="pt-10 border-t flex flex-col items-center gap-6 text-center">
+            <div className="pt-10 border-t flex flex-col items-center gap-6 text-center pdf-hide">
               <div className="space-y-2">
                 <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Fim da Instrução</p>
                 <p className="text-muted-foreground text-sm max-w-sm">
@@ -532,6 +563,7 @@ export const InstructionView = () => {
                   className="pl-10 uppercase"
                   value={tempName}
                   onChange={(e) => setTempName(e.target.value.toUpperCase())}
+                  onKeyDown={handleKeyDown}
                 />
               </div>
             </div>
@@ -545,6 +577,7 @@ export const InstructionView = () => {
                   className="pl-10 uppercase"
                   value={tempRole}
                   onChange={(e) => setTempRole(e.target.value.toUpperCase())}
+                  onKeyDown={handleKeyDown}
                 />
               </div>
             </div>
@@ -567,7 +600,7 @@ export const InstructionView = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col items-center justify-center py-6 gap-4">
-            <div className="p-4 bg-white rounded-2xl shadow-inner border">
+            <div className="p-4 bg-white rounded-2xl shadow-inner border" id="qr-code-container">
               <QRCodeSVG 
                 value={window.location.href} 
                 size={200}
@@ -579,9 +612,63 @@ export const InstructionView = () => {
               {window.location.href}
             </p>
           </div>
-          <Button variant="outline" className="w-full" onClick={() => setShowQRCodeModal(false)}>
-            Fechar
-          </Button>
+          <div className="flex flex-col gap-2">
+            <Button className="w-full gap-2" onClick={() => {
+              const svg = document.querySelector('#qr-code-container svg') as SVGGraphicsElement;
+              if (svg) {
+                const svgData = new XMLSerializer().serializeToString(svg);
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const img = new Image();
+                img.onload = () => {
+                  const qrSize = 1000; // Even larger for high quality
+                  const padding = 80;
+                  const headerHeight = 150;
+                  const footerHeight = 350; // More space for huge company name
+                  
+                  canvas.width = qrSize + padding * 2;
+                  canvas.height = qrSize + padding * 2 + headerHeight + footerHeight;
+                  
+                  if (ctx) {
+                    // Background
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    // Header - Equipment Name
+                    ctx.fillStyle = '#0f172a';
+                    ctx.font = 'bold 60px Inter, sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(instruction.equipmentName.toUpperCase(), canvas.width / 2, padding + 50);
+                    
+                    ctx.font = '30px Inter, sans-serif';
+                    ctx.fillStyle = '#64748b';
+                    ctx.fillText('INSTRUÇÕES DE BLOQUEIO DE EQUIPAMENTO', canvas.width / 2, padding + 110);
+                    
+                    // Draw QR Code
+                    ctx.drawImage(img, padding, padding + headerHeight, qrSize, qrSize);
+                    
+                    // Footer - Company Name
+                    ctx.fillStyle = '#ef4444'; // primary/red
+                    ctx.font = 'black 350px Inter, sans-serif'; // Even larger as requested
+                    ctx.fillText(company.name.toUpperCase(), canvas.width / 2, padding + headerHeight + qrSize + 280);
+                    
+                    const pngFile = canvas.toDataURL('image/png');
+                    const downloadLink = document.createElement('a');
+                    downloadLink.download = `QR-LOTO-${instruction.equipmentName}.png`;
+                    downloadLink.href = pngFile;
+                    downloadLink.click();
+                  }
+                };
+                img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+              }
+            }}>
+              <Download className="w-4 h-4" />
+              Baixar QR Code
+            </Button>
+            <Button variant="outline" className="w-full" onClick={() => setShowQRCodeModal(false)}>
+              Fechar
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

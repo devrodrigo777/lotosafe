@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Plus, LayoutDashboard, FileText, Settings, Users, MapPin, PlusCircle, Trash2, MessageSquare, ThumbsUp, Clock, Edit, Save, Key, Map, Target, Loader2 } from 'lucide-react';
+import { Plus, LayoutDashboard, FileText, Settings, Users, MapPin, PlusCircle, Trash2, MessageSquare, ThumbsUp, Clock, Edit, Save, Key, Map, Target, Loader2, QrCode } from 'lucide-react';
 import { InstructionEditor } from './InstructionEditor';
 import { toast } from 'sonner';
 import { updatePassword } from '@/firebase';
@@ -35,6 +35,7 @@ export const AdminDashboard = ({ companyId }: { companyId: string }) => {
   // QR Code Modal state
   const [savedInstructionId, setSavedInstructionId] = useState<string | null>(null);
   const [showQRModal, setShowQRModal] = useState(false);
+  const [qrModalTitle, setQrModalTitle] = useState('Instrução Salva!');
 
   // Settings state
   const [newPassword, setNewPassword] = useState('');
@@ -264,6 +265,7 @@ export const AdminDashboard = ({ companyId }: { companyId: string }) => {
             setShowEditor(false);
             setEditingInstruction(null);
             setSavedInstructionId(id);
+            setQrModalTitle('Instrução Salva!');
             setShowQRModal(true);
           }} 
           initialData={editingInstruction || undefined}
@@ -431,13 +433,27 @@ export const AdminDashboard = ({ companyId }: { companyId: string }) => {
                            size="icon" 
                            className="text-primary hover:bg-primary/10" 
                            onClick={() => {
+                             setSavedInstructionId(inst.id);
+                             setQrModalTitle('QR Code de Acesso');
+                             setShowQRModal(true);
+                           }}
+                           title="Ver QR Code"
+                         >
+                           <QrCode className="w-4 h-4" />
+                         </Button>
+                         <Button 
+                           variant="ghost" 
+                           size="icon" 
+                           className="text-primary hover:bg-primary/10" 
+                           onClick={() => {
                              setEditingInstruction(inst);
                              setShowEditor(true);
                            }}
+                           title="Editar"
                          >
                            <Edit className="w-4 h-4" />
                          </Button>
-                         <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={() => handleDeleteInstruction(inst.id)}>
+                         <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={() => handleDeleteInstruction(inst.id)} title="Excluir">
                            <Trash2 className="w-4 h-4" />
                          </Button>
                        </div>
@@ -561,13 +577,13 @@ export const AdminDashboard = ({ companyId }: { companyId: string }) => {
       <Dialog open={showQRModal} onOpenChange={setShowQRModal}>
         <DialogContent className="sm:max-w-md text-center">
           <DialogHeader>
-            <DialogTitle>Instrução Salva!</DialogTitle>
+            <DialogTitle>{qrModalTitle}</DialogTitle>
             <DialogDescription>
               Deseja obter o QR Code para acesso rápido a esta instrução?
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col items-center justify-center py-6 gap-4">
-            <div className="p-4 bg-white rounded-2xl shadow-inner border">
+            <div className="p-4 bg-white rounded-2xl shadow-inner border" id="qr-modal-container">
               <QRCodeSVG 
                 value={`${window.location.origin}/instruction/${savedInstructionId}`} 
                 size={200}
@@ -581,16 +597,56 @@ export const AdminDashboard = ({ companyId }: { companyId: string }) => {
           </div>
           <DialogFooter className="sm:justify-center gap-2">
             <Button variant="outline" onClick={() => setShowQRModal(false)}>
-              Agora não
+              Fechar
             </Button>
             <Button onClick={() => {
-              const canvas = document.querySelector('canvas');
-              if (canvas) {
-                const url = canvas.toDataURL('image/png');
-                const link = document.createElement('a');
-                link.download = `QR-LOTO-${savedInstructionId}.png`;
-                link.href = url;
-                link.click();
+              const svg = document.querySelector('#qr-modal-container svg') as SVGGraphicsElement;
+              const currentInst = instructions.find(i => i.id === savedInstructionId);
+              if (svg && company && currentInst) {
+                const svgData = new XMLSerializer().serializeToString(svg);
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const img = new Image();
+                img.onload = () => {
+                  const qrSize = 1000; // Even larger for high quality
+                  const padding = 80;
+                  const headerHeight = 150;
+                  const footerHeight = 350; // More space for huge company name
+                  
+                  canvas.width = qrSize + padding * 2;
+                  canvas.height = qrSize + padding * 2 + headerHeight + footerHeight;
+                  
+                  if (ctx) {
+                    // Background
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    // Header - Equipment Name
+                    ctx.fillStyle = '#0f172a';
+                    ctx.font = 'bold 60px Inter, sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(currentInst.equipmentName.toUpperCase(), canvas.width / 2, padding + 50);
+                    
+                    ctx.font = '30px Inter, sans-serif';
+                    ctx.fillStyle = '#64748b';
+                    ctx.fillText('INSTRUÇÕES DE BLOQUEIO DE EQUIPAMENTO', canvas.width / 2, padding + 110);
+                    
+                    // Draw QR Code
+                    ctx.drawImage(img, padding, padding + headerHeight, qrSize, qrSize);
+                    
+                    // Footer - Company Name
+                    ctx.fillStyle = '#111111';
+                    ctx.font = 'black 350px Inter, sans-serif'; // Even larger as requested
+                    ctx.fillText(company.name.toUpperCase(), canvas.width / 2, padding + headerHeight + qrSize + 280);
+                    
+                    const pngFile = canvas.toDataURL('image/png');
+                    const downloadLink = document.createElement('a');
+                    downloadLink.download = `QR-LOTO-${currentInst.equipmentName}.png`;
+                    downloadLink.href = pngFile;
+                    downloadLink.click();
+                  }
+                };
+                img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
               }
               setShowQRModal(false);
             }}>

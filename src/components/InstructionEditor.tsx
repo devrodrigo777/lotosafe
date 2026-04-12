@@ -4,6 +4,7 @@ import { Instruction, InstructionStep, Company } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
@@ -158,13 +159,22 @@ export const InstructionEditor = ({ companyId, onSave, initialData }: { companyI
                 
                 <div className="flex-1 space-y-4">
                   <div className="flex gap-2">
-                    <Input 
-                      value={step.label} 
-                      onChange={(e) => updateStep(step.id, { label: e.target.value })} 
-                      placeholder={step.type === 'heading' ? 'Título da Seção' : 'Descreva o passo de segurança...'}
-                      className={step.type === 'heading' ? 'font-bold text-lg' : ''}
-                    />
-                    <Badge variant="outline" className="capitalize">{step.type}</Badge>
+                    {step.type === 'text' ? (
+                      <Textarea
+                        value={step.label}
+                        onChange={(e) => updateStep(step.id, { label: e.target.value })}
+                        placeholder="Descreva o passo de segurança..."
+                        className="min-h-[80px]"
+                      />
+                    ) : (
+                      <Input 
+                        value={step.label} 
+                        onChange={(e) => updateStep(step.id, { label: e.target.value })} 
+                        placeholder={step.type === 'heading' ? 'Título da Seção' : 'Descreva o passo de segurança...'}
+                        className={step.type === 'heading' ? 'font-bold text-lg' : ''}
+                      />
+                    )}
+                    <Badge variant="outline" className="capitalize h-fit">{step.type}</Badge>
                   </div>
 
                   {step.type === 'image' && (

@@ -104,8 +104,11 @@ function AppContent() {
 
                 {locLoading ? (
                   <div className="flex flex-col items-center justify-center py-20 gap-4">
-                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                    <p className="text-muted-foreground">Buscando localização...</p>
+                    <div className="relative">
+                      <div className="w-16 h-16 border-4 border-primary/20 rounded-full" />
+                      <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin absolute top-0 left-0" />
+                    </div>
+                    <p className="text-muted-foreground font-medium animate-pulse">Buscando unidades próximas...</p>
                   </div>
                 ) : locError ? (
                   <div className="max-w-md mx-auto p-4 bg-red-50 border border-red-100 rounded-2xl flex items-start gap-3 text-red-700">
@@ -165,7 +168,13 @@ export default function App() {
         <AuthProvider>
           <LocationProvider>
             <AppContent />
-            <Toaster position="top-right" richColors />
+            <Toaster 
+              position="top-right" 
+              richColors 
+              toastOptions={{
+                className: 'py-4 px-6',
+              }}
+            />
           </LocationProvider>
         </AuthProvider>
       </BrowserRouter>
