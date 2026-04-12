@@ -1,0 +1,155 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: companies
+    // Document ID: companyId
+    // Fields:
+    //   - name: string (required)
+    //   - location: map { lat: number, lng: number, radius: number } (required)
+    //   - adminEmail: string (required)
+    //   - createdAt: timestamp
+    //
+    // Collection: instructions
+    // Document ID: instructionId
+    // Fields:
+    //   - companyId: string (required)
+    //   - equipmentName: string (required)
+    //   - category: string
+    //   - steps: list of maps (required)
+    //   - likes: number
+    //   - qrCodeUrl: string
+    //   - createdAt: timestamp
+    //   - updatedAt: timestamp
+    //
+    // Collection: comments
+    // Document ID: commentId (subcollection of instructions)
+    // Fields:
+    //   - instructionId: string (required)
+    //   - userId: string
+    //   - userName: string
+    //   - content: string (required)
+    //   - createdAt: timestamp
+    //
+    // Collection: global_comments
+    // Document ID: commentId
+    // Fields:
+    //   - instructionId: string
+    //   - companyId: string
+    //   - userId: string
+    //   - userName: string
+    //   - content: string
+    //   - createdAt: timestamp
+    //
+    // Collection: global_accesses
+    // Document ID: accessId
+    // Fields:
+    //   - companyId: string (required)
+    //   - userId: string
+    //   - createdAt: timestamp (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (
+          request.auth.token.email == "Rodrigolca@gmail.com" ||
+          request.auth.token.email == "globaladmin@loto.safe" ||
+          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'globaladmin')
+        );
+    }
+
+    function isCompanyAdmin(companyId) {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'company' &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId;
+    }
+
+    function isValidCompany(data) {
+      return data.keys().hasAll(['name', 'location']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.location is map &&
+             data.location.lat is number && data.location.lng is number && data.location.radius is number;
+    }
+
+    function isValidInstruction(data) {
+      return data.keys().hasAll(['companyId', 'equipmentName', 'steps']) &&
+             data.companyId is string &&
+             data.equipmentName is string && data.equipmentName.size() > 0 && data.equipmentName.size() < 100 &&
+             data.steps is list && data.steps.size() < 50;
+    }
+
+    function isValidComment(data) {
+      return data.keys().hasAll(['instructionId', 'content']) &&
+             data.instructionId is string &&
+             data.content is string && data.content.size() > 0 && data.content.size() < 1000;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /companies/{companyId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /instructions/{instructionId} {
+      allow read: if true;
+      allow create: if isAdmin() || isCompanyAdmin(request.resource.data.companyId);
+      allow update: if isAdmin() || isCompanyAdmin(resource.data.companyId) || 
+                    (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes']));
+      allow delete: if isAdmin() || isCompanyAdmin(resource.data.companyId);
+
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isAuthenticated();
+        allow delete: if isAdmin() || isOwner(resource.data.userId);
+      }
+
+      match /history/{historyId} {
+        allow read: if isAdmin() || isCompanyAdmin(get(/databases/$(database)/documents/instructions/$(instructionId)).data.companyId);
+        allow create: if isAuthenticated();
+      }
+    }
+
+    match /likes/{likeId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && likeId == request.auth.uid + "_" + request.resource.data.instructionId;
+      allow delete: if isAuthenticated() && likeId.startsWith(request.auth.uid + "_");
+    }
+
+    match /users/{userId} {
+      allow read, write: if isOwner(userId) || isAdmin();
+    }
+
+    match /global_comments/{commentId} {
+      allow read: if isAdmin() || (isAuthenticated() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == resource.data.companyId);
+      allow create: if isAuthenticated();
+      allow delete: if isAdmin() || isOwner(resource.data.userId);
+    }
+
+    match /global_accesses/{accessId} {
+      allow read: if isAdmin() || (isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == resource.data.companyId);
+      allow create: if true;
+    }
+  }
+}

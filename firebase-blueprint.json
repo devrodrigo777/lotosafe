@@ -1,0 +1,98 @@
+{
+  "entities": {
+    "Company": {
+      "title": "Company",
+      "description": "A registered company in the LOTO system.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "The name of the company." },
+        "location": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" },
+            "radius": { "type": "number", "description": "Radius in meters for geofencing." }
+          }
+        },
+        "adminEmail": { "type": "string", "description": "Email of the company administrator." },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "location", "adminEmail"]
+    },
+    "Instruction": {
+      "title": "LOTO Instruction",
+      "description": "A lockout-tagout instruction for a specific equipment.",
+      "type": "object",
+      "properties": {
+        "companyId": { "type": "string" },
+        "equipmentName": { "type": "string" },
+        "category": { "type": "string" },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "enum": ["text", "checkbox", "image", "single_choice", "multi_choice"] },
+              "label": { "type": "string" },
+              "options": { "type": "array", "items": { "type": "string" } },
+              "required": { "type": "boolean" }
+            }
+          }
+        },
+        "likes": { "type": "number", "default": 0 },
+        "qrCodeUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["companyId", "equipmentName", "steps"]
+    },
+    "Comment": {
+      "title": "Comment",
+      "description": "A user observation/comment on an instruction.",
+      "type": "object",
+      "properties": {
+        "instructionId": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["instructionId", "content"]
+    },
+    "History": {
+      "title": "Instruction History",
+      "description": "A record of changes made to an instruction.",
+      "type": "object",
+      "properties": {
+        "instructionId": { "type": "string" },
+        "changedBy": { "type": "string" },
+        "changeType": { "type": "string" },
+        "previousState": { "type": "object" },
+        "newState": { "type": "object" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+  "firestore": {
+    "/companies/{companyId}": {
+      "schema": "Company",
+      "description": "Stores company metadata and location."
+    },
+    "/instructions/{instructionId}": {
+      "schema": "Instruction",
+      "description": "Stores LOTO instructions."
+    },
+    "/instructions/{instructionId}/comments/{commentId}": {
+      "schema": "Comment",
+      "description": "User observations for an instruction."
+    },
+    "/instructions/{instructionId}/history/{historyId}": {
+      "schema": "History",
+      "description": "Audit log for instruction changes."
+    },
+    "/likes/{likeId}": {
+      "schema": "object",
+      "description": "Tracking likes to prevent duplicates. ID is userId_instructionId"
+    }
+  }
+}
