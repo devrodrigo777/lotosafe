@@ -29,13 +29,15 @@ export const AdminDashboard = ({ companyId }: { companyId: string }) => {
   const [summary, setSummary] = useState({
     totalAcessos: 0,
     instrucoesAtivas: 0,
-    totalLikes: 0
+    totalLikes: 0,
+    growthRate: 0
   });
 
   // QR Code Modal state
   const [savedInstructionId, setSavedInstructionId] = useState<string | null>(null);
   const [showQRModal, setShowQRModal] = useState(false);
   const [qrModalTitle, setQrModalTitle] = useState('Instrução Salva!');
+  const [showFullScreenQR, setShowFullScreenQR] = useState(false);
 
   // Settings state
   const [newPassword, setNewPassword] = useState('');
@@ -73,7 +75,41 @@ export const AdminDashboard = ({ companyId }: { companyId: string }) => {
       );
       const unsubAccess = onSnapshot(qAccess, (snap) => {
         const accessDocs = snap.docs.map(d => d.data());
-        setSummary(prev => ({ ...prev, totalAcessos: accessDocs.length }));
+        
+        // Calculate growth
+        const now = new Date();
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+        
+        const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+        const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+
+        let currentMonthCount = 0;
+        let lastMonthCount = 0;
+
+        accessDocs.forEach(acc => {
+          if (acc.createdAt) {
+            const date = acc.createdAt.toDate ? acc.createdAt.toDate() : new Date(acc.createdAt.seconds * 1000);
+            if (date.getMonth() === currentMonth && date.getFullYear() === currentYear) {
+              currentMonthCount++;
+            } else if (date.getMonth() === lastMonth && date.getFullYear() === lastMonthYear) {
+              lastMonthCount++;
+            }
+          }
+        });
+
+        let growth = 0;
+        if (lastMonthCount > 0) {
+          growth = ((currentMonthCount - lastMonthCount) / lastMonthCount) * 100;
+        } else if (currentMonthCount > 0) {
+          growth = 100;
+        }
+
+        setSummary(prev => ({ 
+          ...prev, 
+          totalAcessos: accessDocs.length,
+          growthRate: growth
+        }));
 
         // Group by day for the chart
         const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -287,7 +323,15 @@ export const AdminDashboard = ({ companyId }: { companyId: string }) => {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{summary.totalAcessos.toLocaleString()}</div>
-                  <p className="text-xs text-muted-foreground">+20.1% em relação ao mês passado</p>
+                  <div className="flex items-center gap-1 mt-1">
+                    <Badge 
+                      variant="secondary" 
+                      className={`${summary.growthRate >= 0 ? 'bg-green-100 text-green-700 hover:bg-green-100' : 'bg-red-100 text-red-700 hover:bg-red-100'} border-none text-[10px] h-4 px-1`}
+                    >
+                      {summary.growthRate >= 0 ? '+' : ''}{summary.growthRate.toFixed(1)}%
+                    </Badge>
+                    <p className="text-xs text-muted-foreground">em relação ao mês passado</p>
+                  </div>
                 </CardContent>
               </Card>
               <Card>
@@ -408,26 +452,26 @@ export const AdminDashboard = ({ companyId }: { companyId: string }) => {
                <CardContent>
                  <div className="space-y-4">
                    {instructions.length > 0 ? instructions.map((inst) => (
-                     <div key={inst.id} className="flex items-center justify-between p-4 rounded-xl border bg-card hover:bg-accent/5 transition-colors group">
+                     <div key={inst.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border bg-card hover:bg-accent/5 transition-colors group gap-4">
                        <div className="flex items-center gap-4">
-                         <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                         <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
                            <FileText className="w-6 h-6" />
                          </div>
-                         <div>
-                           <div className="flex items-center gap-2">
-                            <h4 className="font-bold">{inst.equipmentName}</h4>
+                         <div className="min-w-0">
+                           <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="font-bold truncate">{inst.equipmentName}</h4>
                             {inst.version && (
                               <Badge variant="secondary" className="text-[10px] h-4 px-1">v{inst.version}</Badge>
                             )}
                           </div>
-                           <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                             <span className="bg-muted px-2 py-0.5 rounded-full">{inst.category}</span>
-                             <span className="flex items-center gap-1"><ThumbsUp className="w-3 h-3" /> {inst.likes || 0}</span>
-                             <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {inst.steps.length} passos</span>
+                           <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                             <span className="bg-muted px-2 py-0.5 rounded-full whitespace-nowrap">{inst.category}</span>
+                             <span className="flex items-center gap-1 whitespace-nowrap"><ThumbsUp className="w-3 h-3" /> {inst.likes || 0}</span>
+                             <span className="flex items-center gap-1 whitespace-nowrap"><Clock className="w-3 h-3" /> {inst.steps.length} passos</span>
                            </div>
                          </div>
                        </div>
-                       <div className="flex items-center gap-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                       <div className="flex items-center gap-2 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity justify-end sm:justify-start">
                          <Button 
                            variant="ghost" 
                            size="icon" 
@@ -583,7 +627,12 @@ export const AdminDashboard = ({ companyId }: { companyId: string }) => {
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col items-center justify-center py-6 gap-4">
-            <div className="p-4 bg-white rounded-2xl shadow-inner border" id="qr-modal-container">
+            <div 
+              className="p-4 bg-white rounded-2xl shadow-inner border cursor-zoom-in hover:scale-105 transition-transform" 
+              id="qr-modal-container"
+              onClick={() => setShowFullScreenQR(true)}
+              title="Clique para ver em tela cheia"
+            >
               <QRCodeSVG 
                 value={`${window.location.origin}/instruction/${savedInstructionId}`} 
                 size={200}
@@ -609,9 +658,9 @@ export const AdminDashboard = ({ companyId }: { companyId: string }) => {
                 const img = new Image();
                 img.onload = () => {
                   const qrSize = 1000; // Even larger for high quality
-                  const padding = 80;
-                  const headerHeight = 150;
-                  const footerHeight = 350; // More space for huge company name
+                  const padding = 10;
+                  const headerHeight = 170;
+                  const footerHeight = 150; // More space for huge company name
                   
                   canvas.width = qrSize + padding * 2;
                   canvas.height = qrSize + padding * 2 + headerHeight + footerHeight;
@@ -623,21 +672,21 @@ export const AdminDashboard = ({ companyId }: { companyId: string }) => {
                     
                     // Header - Equipment Name
                     ctx.fillStyle = '#0f172a';
-                    ctx.font = 'bold 60px Inter, sans-serif';
+                    ctx.font = 'bold 40px Inter, sans-serif';
                     ctx.textAlign = 'center';
-                    ctx.fillText(currentInst.equipmentName.toUpperCase(), canvas.width / 2, padding + 50);
+                    ctx.fillText(currentInst.equipmentName.toUpperCase(), canvas.width / 2, padding + 110);
                     
-                    ctx.font = '30px Inter, sans-serif';
+                    ctx.font = '38px Inter, sans-serif';
                     ctx.fillStyle = '#64748b';
-                    ctx.fillText('INSTRUÇÕES DE BLOQUEIO DE EQUIPAMENTO', canvas.width / 2, padding + 110);
+                    ctx.fillText('INSTRUÇÕES DE BLOQUEIO DO EQUIPAMENTO', canvas.width / 2, padding + 170);
                     
                     // Draw QR Code
                     ctx.drawImage(img, padding, padding + headerHeight, qrSize, qrSize);
                     
                     // Footer - Company Name
                     ctx.fillStyle = '#111111';
-                    ctx.font = 'black 350px Inter, sans-serif'; // Even larger as requested
-                    ctx.fillText(company.name.toUpperCase(), canvas.width / 2, padding + headerHeight + qrSize + 280);
+                    ctx.font = '900 65px Inter, sans-serif';
+                    ctx.fillText(company.name.toUpperCase(), canvas.width / 2, padding + headerHeight + qrSize + 70);
                     
                     const pngFile = canvas.toDataURL('image/png');
                     const downloadLink = document.createElement('a');
@@ -653,6 +702,51 @@ export const AdminDashboard = ({ companyId }: { companyId: string }) => {
               Baixar QR Code
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Full Screen QR Preview */}
+      <Dialog open={showFullScreenQR} onOpenChange={setShowFullScreenQR}>
+        <DialogContent showCloseButton={false} className="max-w-[98vw] sm:max-w-[95vw] h-[95vh] p-0 overflow-hidden bg-white border-none flex items-center justify-center">
+          <div className="w-full h-full flex flex-col items-center justify-center bg-white p-8 sm:p-12">
+            <div className="w-full max-w-4xl min-h-[85vh] bg-white shadow-2xl border flex flex-col items-center p-8 sm:p-12 text-center justify-between">
+              {/* Header */}
+              <div className="w-full">
+                <h2 className="text-2xl sm:text-4xl font-bold text-slate-900 mb-2">
+                  {instructions.find(i => i.id === savedInstructionId)?.equipmentName.toUpperCase()}
+                </h2>
+                <p className="text-lg sm:text-xl text-slate-500 font-medium tracking-wide">
+                  INSTRUÇÕES DE BLOQUEIO DO EQUIPAMENTO
+                </p>
+              </div>
+
+              {/* QR Code */}
+              <div className="flex-1 flex items-center justify-center w-full py-4">
+                <div className="w-full max-w-[85%] aspect-square">
+                  <QRCodeSVG 
+                    value={`${window.location.origin}/instruction/${savedInstructionId}`} 
+                    size={1000}
+                    level="H"
+                    includeMargin={false}
+                    className="w-full h-full"
+                  />
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="w-full">
+                <h1 className="text-3xl sm:text-6xl font-[900] text-slate-950 tracking-tighter">
+                  {company?.name.toUpperCase()}
+                </h1>
+              </div>
+            </div>
+            <Button 
+              variant="ghost" 
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-900"
+              onClick={() => setShowFullScreenQR(false)}
+            >
+              Fechar
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

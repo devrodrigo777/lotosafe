@@ -1,5 +1,5 @@
 {
-  "name": "LOTO Safe - Sistema de Bloqueio Industrial",
+  "name": "EasyLOTOTO - Sistema de Bloqueio Industrial",
   "description": "Plataforma para gerenciamento e consulta de instruções de bloqueio LOTO (Lockout-Tagout) baseada em geolocalização.",
   "requestFramePermissions": ["geolocation"]
 }

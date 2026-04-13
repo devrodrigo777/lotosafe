@@ -54,6 +54,9 @@ export const InstructionView = () => {
   const [tempRole, setTempRole] = useState('');
   
   const [showQRCodeModal, setShowQRCodeModal] = useState(false);
+  const [showFullScreenQR, setShowFullScreenQR] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [showImageModal, setShowImageModal] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem('loto_visitor_info');
@@ -322,7 +325,7 @@ export const InstructionView = () => {
           </Button>
           <div className="flex items-center gap-2">
             <ShieldAlert className="w-5 h-5 text-primary" />
-            <span className="font-black tracking-tighter text-lg">LOTO Safe</span>
+            <span className="font-black tracking-tighter text-lg">EasyLOTOTO</span>
           </div>
           <div className="w-20" /> {/* Spacer */}
         </div>
@@ -379,7 +382,7 @@ export const InstructionView = () => {
                 </div>
                 <div className="text-right">
                   <ShieldAlert className="w-10 h-10 text-primary ml-auto" />
-                  <p className="font-black tracking-tighter text-xl">LOTO Safe</p>
+                  <p className="font-black tracking-tighter text-xl">EasyLOTOTO</p>
                 </div>
               </div>
               <div className="space-y-1">
@@ -422,7 +425,13 @@ export const InstructionView = () => {
                         <p className="text-lg font-bold text-slate-800 leading-tight whitespace-pre-wrap">{step.label}</p>
                         
                         {step.type === 'image' && step.value?.url && (
-                          <div className="rounded-2xl overflow-hidden border-4 border-white shadow-lg bg-slate-100">
+                          <div 
+                            className="rounded-2xl overflow-hidden border-4 border-white shadow-lg bg-slate-100 cursor-zoom-in hover:scale-[1.01] transition-transform"
+                            onClick={() => {
+                              setSelectedImage(step.value.url);
+                              setShowImageModal(true);
+                            }}
+                          >
                             <img 
                               src={step.value.url} 
                               alt={step.label} 
@@ -600,7 +609,12 @@ export const InstructionView = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col items-center justify-center py-6 gap-4">
-            <div className="p-4 bg-white rounded-2xl shadow-inner border" id="qr-code-container">
+            <div 
+              className="p-4 bg-white rounded-2xl shadow-inner border cursor-zoom-in hover:scale-105 transition-transform" 
+              id="qr-code-container"
+              onClick={() => setShowFullScreenQR(true)}
+              title="Clique para ver em tela cheia"
+            >
               <QRCodeSVG 
                 value={window.location.href} 
                 size={200}
@@ -622,9 +636,9 @@ export const InstructionView = () => {
                 const img = new Image();
                 img.onload = () => {
                   const qrSize = 1000; // Even larger for high quality
-                  const padding = 80;
-                  const headerHeight = 150;
-                  const footerHeight = 350; // More space for huge company name
+                  const padding = 10;
+                  const headerHeight = 170;
+                  const footerHeight = 150; // More space for huge company name
                   
                   canvas.width = qrSize + padding * 2;
                   canvas.height = qrSize + padding * 2 + headerHeight + footerHeight;
@@ -636,21 +650,21 @@ export const InstructionView = () => {
                     
                     // Header - Equipment Name
                     ctx.fillStyle = '#0f172a';
-                    ctx.font = 'bold 60px Inter, sans-serif';
+                    ctx.font = 'bold 40px Inter, sans-serif';
                     ctx.textAlign = 'center';
-                    ctx.fillText(instruction.equipmentName.toUpperCase(), canvas.width / 2, padding + 50);
+                    ctx.fillText(instruction.equipmentName.toUpperCase(), canvas.width / 2, padding + 110);
                     
-                    ctx.font = '30px Inter, sans-serif';
+                    ctx.font = '38px Inter, sans-serif';
                     ctx.fillStyle = '#64748b';
-                    ctx.fillText('INSTRUÇÕES DE BLOQUEIO DE EQUIPAMENTO', canvas.width / 2, padding + 110);
+                    ctx.fillText('INSTRUÇÕES DE BLOQUEIO DO EQUIPAMENTO', canvas.width / 2, padding + 170);
                     
                     // Draw QR Code
                     ctx.drawImage(img, padding, padding + headerHeight, qrSize, qrSize);
                     
                     // Footer - Company Name
-                    ctx.fillStyle = '#ef4444'; // primary/red
-                    ctx.font = 'black 350px Inter, sans-serif'; // Even larger as requested
-                    ctx.fillText(company.name.toUpperCase(), canvas.width / 2, padding + headerHeight + qrSize + 280);
+                    ctx.fillStyle = '#111111';
+                    ctx.font = '900 65px Inter, sans-serif'; // Even larger as requested
+                    ctx.fillText(company.name.toUpperCase(), canvas.width / 2, padding + headerHeight + qrSize + 70);
                     
                     const pngFile = canvas.toDataURL('image/png');
                     const downloadLink = document.createElement('a');
@@ -667,6 +681,74 @@ export const InstructionView = () => {
             </Button>
             <Button variant="outline" className="w-full" onClick={() => setShowQRCodeModal(false)}>
               Fechar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      {/* Full Screen QR Preview */}
+      <Dialog open={showFullScreenQR} onOpenChange={setShowFullScreenQR}>
+        <DialogContent showCloseButton={false} className="max-w-[98vw] sm:max-w-[95vw] h-[95vh] p-0 overflow-hidden bg-white border-none flex items-center justify-center">
+          <div className="w-full h-full flex flex-col items-center justify-center bg-white p-8 sm:p-12">
+            <div className="w-full max-w-4xl min-h-[85vh] bg-white shadow-2xl border flex flex-col items-center p-8 sm:p-12 text-center justify-between">
+              {/* Header */}
+              <div className="w-full">
+                <h2 className="text-2xl sm:text-4xl font-bold text-slate-900 mb-2">
+                  {instruction.equipmentName.toUpperCase()}
+                </h2>
+                <p className="text-lg sm:text-xl text-slate-500 font-medium tracking-wide">
+                  INSTRUÇÕES DE BLOQUEIO DO EQUIPAMENTO
+                </p>
+              </div>
+
+              {/* QR Code */}
+              <div className="flex-1 flex items-center justify-center w-full py-4">
+                <div className="w-full max-w-[85%] aspect-square">
+                  <QRCodeSVG 
+                    value={window.location.href} 
+                    size={1000}
+                    level="H"
+                    includeMargin={false}
+                    className="w-full h-full"
+                  />
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="w-full">
+                <h1 className="text-3xl sm:text-6xl font-[900] text-slate-950 tracking-tighter">
+                  {company.name.toUpperCase()}
+                </h1>
+              </div>
+            </div>
+            <Button 
+              variant="ghost" 
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-900"
+              onClick={() => setShowFullScreenQR(false)}
+            >
+              Fechar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Full Screen Image Viewer */}
+      <Dialog open={showImageModal} onOpenChange={setShowImageModal}>
+        <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 overflow-hidden bg-black/90 border-none flex items-center justify-center">
+          <div className="relative w-full h-full flex items-center justify-center p-4">
+            {selectedImage && (
+              <img 
+                src={selectedImage} 
+                alt="Visualização ampliada" 
+                className="max-w-full max-h-[90vh] object-contain shadow-2xl"
+                referrerPolicy="no-referrer"
+              />
+            )}
+            <Button 
+              variant="ghost" 
+              className="absolute top-4 right-4 text-white hover:bg-white/20 rounded-full w-10 h-10 p-0"
+              onClick={() => setShowImageModal(false)}
+            >
+              <ChevronLeft className="w-6 h-6 rotate-180" />
             </Button>
           </div>
         </DialogContent>

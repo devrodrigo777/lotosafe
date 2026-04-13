@@ -92,7 +92,7 @@ function AppContent() {
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-bold"
                   >
                     <ShieldAlert className="w-4 h-4" />
-                    SISTEMA LOTO ATIVO
+                    SISTEMA LOTOTO ATIVO
                   </motion.div>
                   <h1 className="text-4xl md:text-6xl font-black tracking-tight text-slate-900">
                     Segurança em <span className="text-primary">Primeiro Lugar</span>
@@ -126,7 +126,7 @@ function AppContent() {
                       <div className="space-y-2">
                         <h2 className="text-2xl font-bold tracking-tight">Nenhuma Empresa Detectada</h2>
                         <p className="text-muted-foreground">
-                          Você não está dentro do raio de acesso de nenhuma empresa cadastrada no sistema LOTO Safe.
+                          Você não está dentro do raio de acesso de nenhuma empresa cadastrada no sistema EasyLOTOTO.
                         </p>
                         {location && (
                           <div className="mt-4 p-4 bg-slate-50 rounded-2xl border border-slate-100 text-left">
@@ -147,10 +147,10 @@ function AppContent() {
             <div className="max-w-7xl mx-auto px-4 text-center space-y-4">
               <div className="flex items-center justify-center gap-2 opacity-50">
                 <ShieldAlert className="w-5 h-5" />
-                <span className="font-bold tracking-tighter">LOTO Safe</span>
+                <span className="font-bold tracking-tighter">EasyLOTOTO</span>
               </div>
               <p className="text-sm text-muted-foreground">
-                © 2026 LOTO Safe Industrial. Feito com ❤ por <a href="https://www.linkedin.com/in/rodrigolca/">@RodrigoLCA</a>
+                © 2026 EasyLOTOTO. Feito com ❤ por <a href="https://www.linkedin.com/in/rodrigolca/">@RodrigoLCA</a>
               </p>
             </div>
           </footer>

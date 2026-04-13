@@ -1,20 +1,65 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# 🛡️ EasyLOTOTO
 
-# Run and deploy your AI Studio app
+**EasyLOTOTO** é uma plataforma avançada de gestão de bloqueio e etiquetagem (LOTO - Lockout-Tagout), projetada para garantir a segurança máxima em ambientes industriais através de tecnologia digital, geolocalização e acesso rápido via QR Code.
 
-This contains everything you need to run your app locally.
+![EasyLOTOTO Banner](https://picsum.photos/id/336/1200/400)
 
-View your app in AI Studio: https://ai.studio/apps/9b57a690-cabc-4d73-9de0-fab9c4c3a3e0
+## 🚀 Funcionalidades Principais
 
-## Run Locally
+- **📍 Geolocalização Inteligente (Geofencing):** As instruções de segurança só podem ser acessadas por operadores que estiverem fisicamente dentro do perímetro de segurança da unidade industrial.
+- **📲 Acesso via QR Code:** Cada equipamento possui um QR Code exclusivo que direciona instantaneamente para o procedimento de bloqueio atualizado.
+- **📊 Dashboard Administrativo:** Monitoramento em tempo real de acessos, feedbacks e estatísticas de crescimento mensal.
+- **📝 Editor de Instruções:** Interface intuitiva para criar e editar passos de segurança com suporte a imagens, checklists e múltiplas escolhas.
+- **📄 Exportação para PDF:** Gere documentos offline para uso em áreas sem conectividade ou para arquivamento físico.
+- **💬 Feedback e Colaboração:** Sistema de comentários para que operadores possam reportar dificuldades ou sugestões diretamente do campo.
+- **🖼️ Visualização Ampliada:** Imagens de alta resolução com visualização em tela cheia para identificação precisa de pontos de bloqueio.
 
-**Prerequisites:**  Node.js
+## 🛠️ Tecnologias Utilizadas
 
+- **Frontend:** React 18 + TypeScript
+- **Estilização:** Tailwind CSS + Shadcn/UI
+- **Backend/Database:** Firebase Firestore
+- **Autenticação:** Firebase Auth
+- **Animações:** Framer Motion
+- **Gráficos:** Recharts
+- **QR Codes:** QRCode.react
+- **PDF:** jsPDF + html2canvas
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## 📦 Instalação e Configuração
+
+1. **Clone o repositório:**
+   ```bash
+   git clone https://github.com/seu-usuario/easylototo.git
+   ```
+
+2. **Instale as dependências:**
+   ```bash
+   npm install
+   ```
+
+3. **Configure as variáveis de ambiente:**
+   Crie um arquivo `.env` na raiz do projeto com suas credenciais do Firebase:
+   ```env
+   VITE_FIREBASE_API_KEY=sua_api_key
+   VITE_FIREBASE_AUTH_DOMAIN=seu_auth_domain
+   VITE_FIREBASE_PROJECT_ID=seu_project_id
+   VITE_FIREBASE_STORAGE_BUCKET=seu_storage_bucket
+   VITE_FIREBASE_MESSAGING_SENDER_ID=seu_sender_id
+   VITE_FIREBASE_APP_ID=seu_app_id
+   ```
+
+4. **Inicie o servidor de desenvolvimento:**
+   ```bash
+   npm run dev
+   ```
+
+## 🛡️ Segurança e Conformidade
+
+O **EasyLOTOTO** foi desenvolvido seguindo as melhores práticas de segurança industrial, ajudando empresas a manterem a conformidade com normas como a **NR-10**, **NR-12** e diretrizes internacionais de segurança do trabalho.
+
+## 📄 Licença
+
+Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+
+---
+Desenvolvido com ❤ por @RodrigoLCA para salvar vidas e otimizar a segurança operacional. 🛠️🛡️

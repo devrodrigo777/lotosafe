@@ -89,7 +89,7 @@ export const Navbar = () => {
             <ShieldCheck className="w-6 h-6 text-white" />
           </div>
           <div className="hidden sm:block">
-            <h1 className="font-bold text-xl tracking-tight">LOTO Safe</h1>
+            <h1 className="font-bold text-xl tracking-tight">EasyLOTOTO</h1>
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Industrial Security</p>
           </div>
         </div>

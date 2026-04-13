@@ -91,7 +91,7 @@ export const InstructionList = () => {
         </div>
         <h2 className="text-2xl font-bold mb-2">Nenhuma empresa detectada</h2>
         <p className="text-muted-foreground max-w-md mb-8">
-          Você não está dentro do raio de acesso de nenhuma empresa cadastrada no sistema LOTO Safe.
+          Você não está dentro do raio de acesso de nenhuma empresa cadastrada no sistema EasyLOTOTO.
         </p>
 
         {location && (
