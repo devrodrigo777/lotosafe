@@ -539,8 +539,8 @@ export const AdminDashboard = ({ companyId }: { companyId: string }) => {
                           id="lat" 
                           type="number" 
                           step="any"
-                          value={locationSettings.lat} 
-                          onChange={(e) => setLocationSettings(prev => ({ ...prev, lat: parseFloat(e.target.value) }))}
+                          value={locationSettings.lat ?? 0} 
+                          onChange={(e) => setLocationSettings(prev => ({ ...prev, lat: parseFloat(e.target.value) || 0 }))}
                         />
                       </div>
                       <div className="space-y-2">
@@ -549,8 +549,8 @@ export const AdminDashboard = ({ companyId }: { companyId: string }) => {
                           id="lng" 
                           type="number" 
                           step="any"
-                          value={locationSettings.lng} 
-                          onChange={(e) => setLocationSettings(prev => ({ ...prev, lng: parseFloat(e.target.value) }))}
+                          value={locationSettings.lng ?? 0} 
+                          onChange={(e) => setLocationSettings(prev => ({ ...prev, lng: parseFloat(e.target.value) || 0 }))}
                         />
                       </div>
                     </div>
@@ -560,8 +560,8 @@ export const AdminDashboard = ({ companyId }: { companyId: string }) => {
                         <Input 
                           id="radius" 
                           type="number" 
-                          value={locationSettings.radius} 
-                          onChange={(e) => setLocationSettings(prev => ({ ...prev, radius: parseInt(e.target.value) }))}
+                          value={locationSettings.radius ?? 0} 
+                          onChange={(e) => setLocationSettings(prev => ({ ...prev, radius: parseInt(e.target.value) || 0 }))}
                         />
                         <Button type="button" variant="outline" onClick={captureCurrentLocation} className="gap-2 whitespace-nowrap">
                           <Target className="w-4 h-4" />
@@ -592,7 +592,7 @@ export const AdminDashboard = ({ companyId }: { companyId: string }) => {
                       <Input 
                         id="new-password" 
                         type="password" 
-                        value={newPassword}
+                        value={newPassword || ''}
                         onChange={(e) => setNewPassword(e.target.value)}
                       />
                     </div>
@@ -601,7 +601,7 @@ export const AdminDashboard = ({ companyId }: { companyId: string }) => {
                       <Input 
                         id="confirm-password" 
                         type="password" 
-                        value={confirmPassword}
+                        value={confirmPassword || ''}
                         onChange={(e) => setConfirmPassword(e.target.value)}
                       />
                     </div>

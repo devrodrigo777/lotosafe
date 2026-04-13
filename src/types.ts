@@ -23,6 +23,7 @@ export interface Instruction {
   id: string;
   companyId: string;
   equipmentName: string;
+  location?: string;
   category: string;
   steps: InstructionStep[];
   likes: number;

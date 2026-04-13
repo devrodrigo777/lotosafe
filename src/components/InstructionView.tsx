@@ -345,11 +345,17 @@ export const InstructionView = () => {
               <h1 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900">
                 {instruction.equipmentName}
               </h1>
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
                 <span className="flex items-center gap-1">
                   <Building2 className="w-4 h-4" />
                   {company.name}
                 </span>
+                {instruction.location && (
+                  <span className="flex items-center gap-1">
+                    <MapPin className="w-4 h-4" />
+                    {instruction.location}
+                  </span>
+                )}
                 <span className="flex items-center gap-1">
                   <Clock className="w-4 h-4" />
                   Atualizado em {new Date(instruction.updatedAt?.seconds * 1000).toLocaleDateString()}
@@ -385,16 +391,28 @@ export const InstructionView = () => {
                   <p className="font-black tracking-tighter text-xl">EasyLOTOTO</p>
                 </div>
               </div>
-              <div className="space-y-1">
-                <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Equipamento / Atividade</p>
-                <h1 className="text-3xl font-black text-slate-900">{instruction.equipmentName}</h1>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Equipamento / Atividade</p>
+                  <h1 className="text-2xl font-black text-slate-900">{instruction.equipmentName}</h1>
+                </div>
+                {instruction.location && (
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Local</p>
+                    <h1 className="text-2xl font-black text-slate-900">{instruction.location}</h1>
+                  </div>
+                )}
+                <div className="space-y-1">
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Categoria/Tag</p>
+                  <h1 className="text-2xl font-black text-slate-900">{instruction.category}</h1>
+                </div>
               </div>
             </div>
 
             <div className="flex items-center justify-between border-b pb-6 pdf-hide">
               <div className="space-y-1">
                 <h2 className="text-xl font-bold">Instruções de Segurança</h2>
-                <p className="text-sm text-muted-foreground">Siga rigorosamente cada passo abaixo para o bloqueio seguro.</p>
+                <p className="text-sm text-muted-foreground">Siga rigorosamente cada passo abaixo para o bloqueio seguro deste equipamento.</p>
               </div>
               <div className="hidden md:block text-right">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">ID da Instrução</p>
@@ -535,7 +553,7 @@ export const InstructionView = () => {
                 </div>
                 <Textarea 
                   placeholder="Descreva sua observação aqui..." 
-                  value={newComment}
+                  value={newComment || ''}
                   onChange={(e) => setNewComment(e.target.value)}
                   className="min-h-[100px] rounded-2xl focus-visible:ring-primary"
                 />
@@ -570,7 +588,7 @@ export const InstructionView = () => {
                   id="name" 
                   placeholder="EX: JOÃO DA SILVA" 
                   className="pl-10 uppercase"
-                  value={tempName}
+                  value={tempName || ''}
                   onChange={(e) => setTempName(e.target.value.toUpperCase())}
                   onKeyDown={handleKeyDown}
                 />
@@ -584,7 +602,7 @@ export const InstructionView = () => {
                   id="role" 
                   placeholder="EX: OPERADOR DE MANUTENÇÃO" 
                   className="pl-10 uppercase"
-                  value={tempRole}
+                  value={tempRole || ''}
                   onChange={(e) => setTempRole(e.target.value.toUpperCase())}
                   onKeyDown={handleKeyDown}
                 />

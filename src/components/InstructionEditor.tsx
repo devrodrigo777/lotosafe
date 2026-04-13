@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 
 export const InstructionEditor = ({ companyId, onSave, initialData }: { companyId: string, onSave: (id: string) => void, initialData?: Instruction }) => {
   const [equipmentName, setEquipmentName] = useState(initialData?.equipmentName || '');
+  const [location, setLocation] = useState(initialData?.location || '');
   const [category, setCategory] = useState(initialData?.category || '');
   const [steps, setSteps] = useState<InstructionStep[]>(initialData?.steps || []);
   const [saving, setSaving] = useState(false);
@@ -37,6 +38,40 @@ export const InstructionEditor = ({ companyId, onSave, initialData }: { companyI
     }
 
     setSteps([...steps, newStep]);
+  };
+
+  const addHeaderSteps = () => {
+    const headerStep: InstructionStep = {
+      id: Math.random().toString(36).substr(2, 9),
+      type: 'single_choice',
+      label: 'Aplicação de bloqueio',
+      required: true,
+      options: [
+        "1. Notificar o operador",
+        "2. Desligue corretamente a máquina.",
+        "3. Isole todas as fontes de energia.",
+        "4. Aplique dispositivos de bloqueio, travas e etiquetas.",
+        "5. Verifique se todas as fontes descritas nesse mapa de bloqueio foram totalmente desenergizadas."
+      ]
+    };
+    setSteps([...steps, headerStep]);
+  };
+
+  const addFooterSteps = () => {
+    const footerStep: InstructionStep = {
+      id: Math.random().toString(36).substr(2, 9),
+      type: 'single_choice',
+      label: 'Processo de Retirada do Bloqueio',
+      required: true,
+      options: [
+        "1. Verifique se todas as ferramentas e todos os itens foram retirados.",
+        "2. Confirme se todos os funcionários estão em local seguro.",
+        "3. Verifique se os controles estão na posição neutra.",
+        "4. Retire os dispositivos de bloqueio e torne a energizar a máquina.",
+        "5. Avise os operadores de que o trabalho foi concluído."
+      ]
+    };
+    setSteps([...steps, footerStep]);
   };
 
   const removeStep = (id: string) => {
@@ -80,6 +115,7 @@ export const InstructionEditor = ({ companyId, onSave, initialData }: { companyI
       if (initialData?.id) {
         await updateDoc(doc(db, 'instructions', initialData.id), {
           equipmentName,
+          location,
           category,
           steps: sanitizedSteps,
           version: (initialData.version || 1) + 1,
@@ -90,6 +126,7 @@ export const InstructionEditor = ({ companyId, onSave, initialData }: { companyI
         const docRef = await addDoc(collection(db, 'instructions'), {
           companyId,
           equipmentName,
+          location,
           category,
           steps: sanitizedSteps,
           likes: 0,
@@ -125,14 +162,18 @@ export const InstructionEditor = ({ companyId, onSave, initialData }: { companyI
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>Nome do Equipamento</Label>
-              <Input value={equipmentName} onChange={(e) => setEquipmentName(e.target.value)} placeholder="Ex: Prensa Hidráulica P-01" />
+              <Input value={equipmentName || ''} onChange={(e) => setEquipmentName(e.target.value)} placeholder="Ex: Prensa Hidráulica P-01" />
             </div>
             <div className="space-y-2">
-              <Label>Categoria</Label>
-              <Input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Ex: Elétrica, Mecânica..." />
+              <Label>Local</Label>
+              <Input value={location || ''} onChange={(e) => setLocation(e.target.value)} placeholder="Ex: Setor de Estamparia" />
+            </div>
+            <div className="space-y-2">
+              <Label>Categoria/Tag</Label>
+              <Input value={category || ''} onChange={(e) => setCategory(e.target.value)} placeholder="Ex: Elétrica, Mecânica..." />
             </div>
           </div>
         </CardContent>
@@ -161,14 +202,14 @@ export const InstructionEditor = ({ companyId, onSave, initialData }: { companyI
                   <div className="flex gap-2">
                     {step.type === 'text' ? (
                       <Textarea
-                        value={step.label}
+                        value={step.label || ''}
                         onChange={(e) => updateStep(step.id, { label: e.target.value })}
                         placeholder="Descreva o passo de segurança..."
                         className="min-h-[80px]"
                       />
                     ) : (
                       <Input 
-                        value={step.label} 
+                        value={step.label || ''} 
                         onChange={(e) => updateStep(step.id, { label: e.target.value })} 
                         placeholder={step.type === 'heading' ? 'Título da Seção' : 'Descreva o passo de segurança...'}
                         className={step.type === 'heading' ? 'font-bold text-lg' : ''}
@@ -215,9 +256,16 @@ export const InstructionEditor = ({ companyId, onSave, initialData }: { companyI
                       ) : (
                         <div className="space-y-2">
                           <Input 
-                            placeholder="https://exemplo.com/imagem.jpg" 
+                            placeholder="Cole o link da imagem ou dê Ctrl+V para colar um print..." 
                             value={step.value?.url || ''}
                             onChange={(e) => updateStep(step.id, { value: { ...step.value, url: e.target.value } })}
+                            onPaste={(e) => {
+                              const item = e.clipboardData.items[0];
+                              if (item?.type.includes('image')) {
+                                const file = item.getAsFile();
+                                if (file) handleImageUpload(step.id, file);
+                              }
+                            }}
                           />
                           {step.value?.url && (
                             <img src={step.value.url} alt="Preview" className="h-32 rounded-md object-cover border" referrerPolicy="no-referrer" />
@@ -232,7 +280,7 @@ export const InstructionEditor = ({ companyId, onSave, initialData }: { companyI
                       {step.options?.map((opt, oIdx) => (
                         <div key={oIdx} className="flex gap-2">
                           <Input 
-                            value={opt} 
+                            value={opt || ''} 
                             onChange={(e) => {
                               const newOpts = [...(step.options || [])];
                               newOpts[oIdx] = e.target.value;
@@ -259,7 +307,7 @@ export const InstructionEditor = ({ companyId, onSave, initialData }: { companyI
           ))}
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 p-4 bg-muted/30 rounded-xl border-2 border-dashed">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 p-4 bg-muted/30 rounded-xl border-2 border-dashed">
           <Button variant="outline" size="sm" className="gap-2" onClick={() => addStep('heading')}>
             <Heading className="w-4 h-4" /> Título
           </Button>
@@ -274,6 +322,12 @@ export const InstructionEditor = ({ companyId, onSave, initialData }: { companyI
           </Button>
           <Button variant="outline" size="sm" className="gap-2" onClick={() => addStep('image')}>
             <ImageIcon className="w-4 h-4" /> Imagem
+          </Button>
+          <Button variant="secondary" size="sm" className="gap-2 bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200" onClick={addHeaderSteps}>
+            <Heading className="w-4 h-4" /> Cabeçalho
+          </Button>
+          <Button variant="secondary" size="sm" className="gap-2 bg-orange-50 text-orange-700 hover:bg-orange-100 border-orange-200" onClick={addFooterSteps}>
+            <Heading className="w-4 h-4" /> Rodapé
           </Button>
         </div>
       </div>
