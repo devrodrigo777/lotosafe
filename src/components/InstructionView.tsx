@@ -245,15 +245,25 @@ export const InstructionView = () => {
       pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, contentHeight);
       heightLeft -= pdfHeight;
 
+      // Add footer to each page
+      const addFooter = (p: jsPDF) => {
+        p.setFontSize(7);
+        p.setTextColor(150);
+        p.text('© 2026 EasyLOTOTO. Desenvolvido por @RodrigoLCA', p.internal.pageSize.getWidth() / 2, p.internal.pageSize.getHeight() - 10, { align: 'center' });
+      };
+
+      addFooter(pdf);
+
       // Add subsequent pages if content is longer than one page
       while (heightLeft >= 0) {
         position = heightLeft - contentHeight;
         pdf.addPage();
         pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, contentHeight);
+        addFooter(pdf);
         heightLeft -= pdfHeight;
       }
 
-      pdf.save(`LOTO-${instruction?.equipmentName || 'instrucao'}.pdf`);
+      pdf.save(`${company?.name} - LOTOTO - ${instruction?.equipmentName}.pdf`);
       toast.dismiss();
       toast.success("PDF gerado com sucesso!");
     } catch (err) {
@@ -273,6 +283,33 @@ export const InstructionView = () => {
   }
 
   if (!instruction || !company) return null;
+
+  const trialExpiry = company.trialExpiresAt?.toDate ? company.trialExpiresAt.toDate() : new Date(company.trialExpiresAt || 0);
+  const isTrialExpired = trialExpiry < new Date();
+
+  if (isTrialExpired) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <Card className="max-w-md w-full text-center p-8 space-y-6 shadow-2xl border-amber-100">
+          <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center mx-auto">
+            <Clock className="w-10 h-10 text-amber-500" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold text-slate-900">Acesso Suspenso</h2>
+            <p className="text-muted-foreground">
+              O período de demonstração da unidade <span className="font-bold text-slate-900">{company.name}</span> expirou.
+            </p>
+            <p className="text-sm text-muted-foreground mt-4">
+              Esta instrução não pode ser visualizada no momento. Entre em contato com o responsável pela unidade.
+            </p>
+          </div>
+          <Button onClick={() => navigate('/')} variant="outline" className="w-full">
+            Voltar ao Início
+          </Button>
+        </Card>
+      </div>
+    );
+  }
 
   if (isWithinPerimeter === false) {
     return (
@@ -386,10 +423,6 @@ export const InstructionView = () => {
                   <p className="text-xs font-bold uppercase tracking-widest text-primary">Unidade Industrial</p>
                   <h2 className="text-2xl font-black text-slate-900">{company.name}</h2>
                 </div>
-                <div className="text-right">
-                  <ShieldAlert className="w-10 h-10 text-primary ml-auto" />
-                  <p className="font-black tracking-tighter text-xl">EasyLOTOTO</p>
-                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
@@ -421,73 +454,98 @@ export const InstructionView = () => {
             </div>
 
             <div className="space-y-10">
-              {instruction.steps.map((step, idx) => (
-                <div key={step.id} className="relative">
-                  {step.type === 'heading' ? (
-                    <div className="pt-4">
-                      <h3 className="text-lg font-black uppercase tracking-wider text-primary flex items-center gap-3">
-                        <div className="w-8 h-1 bg-primary rounded-full" />
-                        {step.label}
-                      </h3>
-                    </div>
-                  ) : (
-                    <div className="flex gap-6 items-start">
-                      <div className="flex flex-col items-center gap-2 shrink-0">
-                        <div className="w-10 h-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-bold text-lg shadow-lg">
-                          {idx + 1}
+              {(() => {
+                let currentNumber = 0;
+                return instruction.steps.map((step) => {
+                  const shouldShowNumber = step.type !== 'heading' && step.type !== 'separator' && !step.hideNumber;
+                  const displayNumber = shouldShowNumber ? ++currentNumber : null;
+                  
+                  return (
+                    <div key={step.id} className={`relative rounded-2xl transition-colors ${
+                      step.backgroundColor === 'yellow' ? 'bg-yellow-50 p-4 -mx-4' :
+                      step.backgroundColor === 'blue' ? 'bg-blue-50 p-4 -mx-4' :
+                      step.backgroundColor === 'red' ? 'bg-red-50 p-4 -mx-4' :
+                      step.backgroundColor === 'green' ? 'bg-green-50 p-4 -mx-4' :
+                      step.backgroundColor === 'orange' ? 'bg-orange-50 p-4 -mx-4' :
+                      ''
+                    }`}>
+                      {step.type === 'heading' ? (
+                        <div className="pt-4">
+                          <h3 className="text-lg font-black uppercase tracking-wider text-primary flex items-center gap-3">
+                            <div className="w-8 h-1 bg-primary rounded-full" />
+                            {step.label}
+                          </h3>
                         </div>
-                        <div className="w-0.5 h-full bg-slate-100 absolute top-10 -bottom-10 left-5 -z-10" />
-                      </div>
-                      
-                      <div className="flex-1 space-y-4 pb-4">
-                        <p className="text-lg font-bold text-slate-800 leading-tight whitespace-pre-wrap">{step.label}</p>
-                        
-                        {step.type === 'image' && step.value?.url && (
-                          <div 
-                            className="rounded-2xl overflow-hidden border-4 border-white shadow-lg bg-slate-100 cursor-zoom-in hover:scale-[1.01] transition-transform"
-                            onClick={() => {
-                              setSelectedImage(step.value.url);
-                              setShowImageModal(true);
-                            }}
-                          >
-                            <img 
-                              src={step.value.url} 
-                              alt={step.label} 
-                              className="w-full h-auto max-h-[500px] object-contain"
-                              referrerPolicy="no-referrer"
-                            />
-                          </div>
-                        )}
-
-                        {(step.type === 'single_choice' || step.type === 'multi_choice') && step.options && (
-                          <div className="grid gap-2">
-                            {step.options.map((opt, i) => (
-                              <div key={i} className="flex items-center gap-3 p-4 rounded-2xl bg-slate-50 border border-slate-100 text-sm font-medium">
-                                <div className={`w-5 h-5 rounded-${step.type === 'single_choice' ? 'full' : 'md'} border-2 border-slate-300`} />
-                                {opt}
+                      ) : step.type === 'separator' ? (
+                        <div className="py-4">
+                          <div className="h-px bg-slate-200 w-full" />
+                        </div>
+                      ) : (
+                        <div className="flex gap-6 items-start">
+                          <div className="flex flex-col items-center gap-2 shrink-0">
+                            {displayNumber !== null ? (
+                              <div className="w-10 h-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-bold text-lg shadow-lg">
+                                {displayNumber}
                               </div>
-                            ))}
+                            ) : (
+                              <div className="w-10 h-10 flex items-center justify-center">
+                                <div className="w-2 h-2 rounded-full bg-slate-300" />
+                              </div>
+                            )}
+                            <div className="w-0.5 h-full bg-slate-100 absolute top-10 -bottom-10 left-5 -z-10" />
                           </div>
-                        )}
+                          
+                          <div className="flex-1 space-y-4 pb-4">
+                            {step.label && <p className="text-lg font-bold text-slate-800 leading-tight whitespace-pre-wrap">{step.label}</p>}
+                            
+                            {step.type === 'image' && step.value?.url && (
+                              <div 
+                                className="rounded-2xl overflow-hidden border-4 border-white shadow-lg bg-slate-100 cursor-zoom-in hover:scale-[1.01] transition-transform"
+                                onClick={() => {
+                                  setSelectedImage(step.value.url);
+                                  setShowImageModal(true);
+                                }}
+                              >
+                                <img 
+                                  src={step.value.url} 
+                                  alt={step.label} 
+                                  className="w-full h-auto max-h-[500px] object-contain"
+                                  referrerPolicy="no-referrer"
+                                />
+                              </div>
+                            )}
 
-                        {step.type === 'checkbox' && (
-                          <div className="flex items-center gap-3 p-4 rounded-2xl bg-amber-50 border border-amber-100 text-amber-900 text-sm font-bold">
-                            <AlertCircle className="w-5 h-5" />
-                            Confirmação visual obrigatória neste passo.
+                            {(step.type === 'single_choice' || step.type === 'multi_choice') && step.options && (
+                              <div className="grid gap-2">
+                                {step.options.map((opt, i) => (
+                                  <div key={i} className="flex items-center gap-3 p-4 rounded-2xl bg-slate-50 border border-slate-100 text-sm font-medium">
+                                    <div className={`w-5 h-5 rounded-${step.type === 'single_choice' ? 'full' : 'md'} border-2 border-slate-300`} />
+                                    {opt}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {step.type === 'checkbox' && (
+                              <div className="flex items-center gap-3 p-4 rounded-2xl bg-amber-50 border border-amber-100 text-amber-900 text-sm font-bold">
+                                <AlertCircle className="w-5 h-5" />
+                                Confirmação visual obrigatória neste passo.
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              ))}
+                  );
+                });
+              })()}
             </div>
 
             <div className="pt-10 border-t flex flex-col items-center gap-6 text-center pdf-hide">
               <div className="space-y-2">
                 <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Fim da Instrução</p>
                 <p className="text-muted-foreground text-sm max-w-sm">
-                  Certifique-se de que todos os dispositivos de bloqueio estão devidamente instalados e testados.
+                  Este mapa de bloqueio é um documento de segurança. A conferência de cada etapa e o teste de energia zero são obrigatórios para garantir a integridade física dos executantes.
                 </p>
               </div>
               <Button 
@@ -626,24 +684,31 @@ export const InstructionView = () => {
               Aponte a câmera para acessar esta instrução.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col items-center justify-center py-6 gap-4">
-            <div 
-              className="p-4 bg-white rounded-2xl shadow-inner border cursor-zoom-in hover:scale-105 transition-transform" 
-              id="qr-code-container"
-              onClick={() => setShowFullScreenQR(true)}
-              title="Clique para ver em tela cheia"
-            >
-              <QRCodeSVG 
-                value={window.location.href} 
-                size={200}
-                level="H"
-                includeMargin={true}
-              />
+            <div className="flex flex-col items-center justify-center py-6 gap-4">
+              <div 
+                className="p-4 bg-white rounded-2xl shadow-inner border cursor-zoom-in hover:scale-105 transition-transform" 
+                id="qr-code-container"
+                onClick={() => setShowFullScreenQR(true)}
+                title="Clique para ver em tela cheia"
+              >
+                <QRCodeSVG 
+                  value={window.location.href} 
+                  size={200}
+                  level="M"
+                  includeMargin={true}
+                />
+              </div>
+              <p 
+                className="text-xs font-mono text-muted-foreground break-all bg-slate-50 p-2 rounded border w-full text-center cursor-pointer hover:bg-slate-100 transition-colors"
+                onClick={() => {
+                  navigator.clipboard.writeText(window.location.href);
+                  toast.success('Link copiado para a área de transferência!');
+                }}
+                title="Clique para copiar"
+              >
+                {window.location.href}
+              </p>
             </div>
-            <p className="text-[10px] font-mono text-muted-foreground break-all">
-              {window.location.href}
-            </p>
-          </div>
           <div className="flex flex-col gap-2">
             <Button className="w-full gap-2" onClick={() => {
               const svg = document.querySelector('#qr-code-container svg') as SVGGraphicsElement;

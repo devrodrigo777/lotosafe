@@ -8,6 +8,7 @@ import {
   doc, 
   updateDoc, 
   setDoc,
+  onSnapshot,
   query,
   where,
   writeBatch,
@@ -39,12 +40,16 @@ import {
   Search,
   MapPin,
   Eye,
-  Key
+  Key,
+  Clock,
+  Trash2,
+  Edit
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { AdminDashboard } from './AdminDashboard';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { ConfirmationModal } from './ConfirmationModal';
 
 export const GlobalAdminDashboard = () => {
   const [companies, setCompanies] = useState<any[]>([]);
@@ -52,6 +57,22 @@ export const GlobalAdminDashboard = () => {
   const [search, setSearch] = useState('');
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const [showInstructionsModal, setShowInstructionsModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingCompany, setEditingCompany] = useState<any>(null);
+
+  // Confirmation Modal state
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    onConfirm: () => void;
+    variant?: 'default' | 'destructive';
+  }>({
+    isOpen: false,
+    title: '',
+    description: '',
+    onConfirm: () => {},
+  });
 
   const formatTimestamp = (ts: any) => {
     if (!ts || ts === 'Nunca') return 'Nunca';
@@ -62,45 +83,62 @@ export const GlobalAdminDashboard = () => {
   };
 
   useEffect(() => {
-    fetchCompanies();
-  }, []);
+    const qCompanies = collection(db, 'companies');
+    const qUsers = query(collection(db, 'users'), where('role', '==', 'company'));
+    const qInstructions = collection(db, 'instructions');
 
-  const fetchCompanies = async () => {
-    setLoading(true);
-    try {
-      const companiesSnap = await getDocs(collection(db, 'companies'));
-      const usersSnap = await getDocs(query(collection(db, 'users'), where('role', '==', 'company')));
-      
-      const usersMap = new Map();
-      usersSnap.docs.forEach(d => {
-        const data = d.data();
-        usersMap.set(data.companyId, { id: d.id, ...data });
-      });
+    let companiesData: any[] = [];
+    let usersMap = new Map();
+    let instructionsCountMap = new Map();
 
-      const companiesData = await Promise.all(companiesSnap.docs.map(async (d) => {
-        const company = { id: d.id, ...d.data() };
-        const user = usersMap.get(d.id);
-        
-        // Fetch instruction count
-        const instSnap = await getDocs(query(collection(db, 'instructions'), where('companyId', '==', d.id)));
-        
+    const updateState = () => {
+      const merged = companiesData.map(c => {
+        const user = usersMap.get(c.id);
         return {
-          ...company,
+          ...c,
           user,
-          instructionCount: instSnap.size,
+          instructionCount: instructionsCountMap.get(c.id) || 0,
           lastLogin: user?.lastLogin || 'Nunca',
           lastInstructionView: user?.lastInstructionView || 'Nunca',
           active: user?.active ?? true
         };
-      }));
-
-      setCompanies(companiesData);
-    } catch (err) {
-      console.error(err);
-      handleFirestoreError(err, OperationType.LIST, 'companies/users');
-    } finally {
+      });
+      setCompanies(merged);
       setLoading(false);
-    }
+    };
+
+    const unsubCompanies = onSnapshot(qCompanies, (snap) => {
+      companiesData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      updateState();
+    });
+
+    const unsubUsers = onSnapshot(qUsers, (snap) => {
+      usersMap = new Map();
+      snap.docs.forEach(d => {
+        const data = d.data();
+        usersMap.set(data.companyId, { id: d.id, ...data });
+      });
+      updateState();
+    });
+
+    const unsubInstructions = onSnapshot(qInstructions, (snap) => {
+      instructionsCountMap = new Map();
+      snap.docs.forEach(d => {
+        const companyId = d.data().companyId;
+        instructionsCountMap.set(companyId, (instructionsCountMap.get(companyId) || 0) + 1);
+      });
+      updateState();
+    });
+
+    return () => {
+      unsubCompanies();
+      unsubUsers();
+      unsubInstructions();
+    };
+  }, []);
+
+  const fetchCompanies = () => {
+    // No longer needed as we use onSnapshot
   };
 
   const handleCreateCompany = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -121,7 +159,10 @@ export const GlobalAdminDashboard = () => {
       const companyRef = await addDoc(collection(db, 'companies'), {
         name,
         location: { lat, lng, radius },
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),
+        trialExpiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days from now
+        canResetTrial: false,
+        status: 'active'
       });
 
       // Create the user record in Firestore linked to the Auth UID
@@ -133,12 +174,11 @@ export const GlobalAdminDashboard = () => {
         createdAt: serverTimestamp()
       });
 
-      fetchCompanies();
       (e.target as HTMLFormElement).reset();
-      alert('Empresa e usuário criados com sucesso!');
+      toast.success('Empresa e usuário criados com sucesso!');
     } catch (err: any) {
       console.error(err);
-      alert(`Erro ao criar empresa: ${err.message}`);
+      toast.error(`Erro ao criar empresa: ${err.message}`);
     }
   };
 
@@ -148,7 +188,6 @@ export const GlobalAdminDashboard = () => {
       await setDoc(doc(db, 'users', company.user.id), {
         active: !company.active
       }, { merge: true });
-      fetchCompanies();
     } catch (err) {
       console.error(err);
     }
@@ -159,22 +198,156 @@ export const GlobalAdminDashboard = () => {
       toast.error("Usuário não encontrado para esta empresa");
       return;
     }
-    if (!confirm(`Deseja resetar a senha da empresa "${company.name}" para o padrão "1234ABcd"?`)) return;
 
+    setConfirmModal({
+      isOpen: true,
+      title: "Resetar Senha",
+      description: `Deseja resetar a senha da empresa "${company.name}" para o padrão "1234ABcd"?`,
+      onConfirm: async () => {
+        try {
+          await updateDoc(doc(db, 'users', company.user.id), {
+            tempPassword: '1234ABcd',
+            mustChangePassword: true,
+            updatedAt: serverTimestamp()
+          });
+          toast.success("Senha resetada com sucesso para: 1234ABcd");
+        } catch (err) {
+          console.error(err);
+          toast.error("Erro ao resetar senha");
+        }
+      }
+    });
+  };
+
+  const handleUpdateLicense = async (companyId: string, type: 'trial' | 'trial_5m' | 'monthly' | 'lifetime') => {
     try {
-      // In a real app, we would use a Firebase Admin SDK or a cloud function
-      // Since we don't have that here, we'll update a 'resetPassword' flag in Firestore
-      // that the user's client can detect and force a change, or we use our helper if available.
-      // For this environment, we'll simulate it by updating the user record.
-      await updateDoc(doc(db, 'users', company.user.id), {
-        tempPassword: '1234ABcd',
-        mustChangePassword: true,
+      let trialExpiresAt = null;
+      if (type === 'trial') {
+        trialExpiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+      } else if (type === 'trial_5m') {
+        trialExpiresAt = new Date(Date.now() + 5 * 60 * 1000);
+      } else if (type === 'monthly') {
+        trialExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      }
+
+      await updateDoc(doc(db, 'companies', companyId), {
+        licenseType: type === 'trial_5m' ? 'trial' : type,
+        trialExpiresAt: trialExpiresAt,
+        status: 'active',
         updatedAt: serverTimestamp()
       });
-      toast.success("Senha resetada com sucesso para: 1234ABcd");
+      toast.success(`Licença atualizada para ${type === 'lifetime' ? 'Vitalícia' : type === 'monthly' ? 'Mensal' : type === 'trial_5m' ? 'Trial (5 min)' : 'Trial'}`);
     } catch (err) {
       console.error(err);
-      toast.error("Erro ao resetar senha");
+      toast.error("Erro ao atualizar licença");
+    }
+  };
+
+  const handleResetTrial = async (company: any) => {
+    setConfirmModal({
+      isOpen: true,
+      title: "Resetar Período de Demonstração",
+      description: `Deseja resetar o período de trial da empresa "${company.name}" para 3 dias?`,
+      onConfirm: async () => {
+        try {
+          console.log("Resetting trial for company:", company.id);
+          const newExpiry = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+          
+          const companyRef = doc(db, 'companies', company.id);
+          await updateDoc(companyRef, {
+            trialExpiresAt: newExpiry,
+            status: 'active',
+            licenseType: 'trial',
+            isTrialExtended: true,
+            updatedAt: serverTimestamp()
+          });
+          
+          toast.success(`Período de demonstração redefinido com sucesso! Nova expiração: ${newExpiry.toLocaleString()}`);
+        } catch (err) {
+          console.error("Error resetting trial:", err);
+          toast.error("Erro ao resetar trial");
+        }
+      }
+    });
+  };
+
+  const toggleTrialReset = async (company: any) => {
+    try {
+      await updateDoc(doc(db, 'companies', company.id), {
+        canResetTrial: !company.canResetTrial
+      });
+      toast.success(`Permissão de reset ${!company.canResetTrial ? 'concedida' : 'removida'}`);
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro ao atualizar permissão de reset");
+    }
+  };
+
+  const handleDeleteCompany = async (company: any) => {
+    setConfirmModal({
+      isOpen: true,
+      title: "Deletar Empresa",
+      description: `Tem certeza que deseja deletar a empresa "${company.name}"? Esta ação é irreversível e apagará todos os dados associados (usuário e instruções).`,
+      variant: 'destructive',
+      onConfirm: async () => {
+        try {
+          const batch = writeBatch(db);
+          
+          // Delete company doc
+          batch.delete(doc(db, 'companies', company.id));
+          
+          // Delete associated user doc if exists
+          if (company.user?.id) {
+            batch.delete(doc(db, 'users', company.user.id));
+          }
+          
+          // Delete associated instructions
+          const qInst = query(collection(db, 'instructions'), where('companyId', '==', company.id));
+          const instSnap = await getDocs(qInst);
+          instSnap.forEach(d => batch.delete(d.ref));
+          
+          await batch.commit();
+          toast.success("Empresa deletada com sucesso!");
+        } catch (err) {
+          console.error(err);
+          toast.error("Erro ao deletar empresa");
+        }
+      }
+    });
+  };
+
+  const handleEditCompany = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editingCompany) return;
+    
+    const formData = new FormData(e.currentTarget);
+    const name = formData.get('name') as string;
+    const username = formData.get('username') as string;
+    
+    try {
+      const batch = writeBatch(db);
+      
+      // Update company name
+      batch.update(doc(db, 'companies', editingCompany.id), { 
+        name,
+        updatedAt: serverTimestamp()
+      });
+      
+      // Update user username if exists
+      if (editingCompany.user?.id) {
+        batch.update(doc(db, 'users', editingCompany.user.id), { 
+          username,
+          updatedAt: serverTimestamp()
+        });
+      }
+      
+      await batch.commit();
+      setShowEditModal(false);
+      setEditingCompany(null);
+      toast.success("Empresa atualizada com sucesso!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro ao atualizar empresa");
     }
   };
 
@@ -260,7 +433,8 @@ export const GlobalAdminDashboard = () => {
                     <TableHead>Empresa</TableHead>
                     <TableHead>Login</TableHead>
                     <TableHead className="text-center">Instruções</TableHead>
-                    <TableHead>Último Login</TableHead>
+                    <TableHead>Licença</TableHead>
+                    <TableHead>Trial Expira em</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
@@ -281,8 +455,27 @@ export const GlobalAdminDashboard = () => {
                       <TableCell className="text-center">
                         <Badge variant="secondary">{company.instructionCount}</Badge>
                       </TableCell>
+                      <TableCell>
+                        <select 
+                          className="text-xs bg-white border rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-primary"
+                          value={company.licenseType || 'trial'}
+                          onChange={(e) => handleUpdateLicense(company.id, e.target.value as any)}
+                        >
+                          <option value="trial">Trial (3 dias)</option>
+                          <option value="trial_5m">Trial (5 min)</option>
+                          <option value="monthly">1 Mês</option>
+                          <option value="lifetime">Vitalícia</option>
+                        </select>
+                      </TableCell>
                       <TableCell className="text-sm">
-                        {formatTimestamp(company.lastLogin)}
+                        <div className="flex flex-col gap-1">
+                          <span>{formatTimestamp(company.trialExpiresAt)}</span>
+                          {company.trialExpiresAt && (
+                            <span className={`text-[10px] font-bold ${new Date(company.trialExpiresAt.seconds * 1000) < new Date() ? 'text-destructive' : 'text-green-600'}`}>
+                              {new Date(company.trialExpiresAt.seconds * 1000) < new Date() ? 'EXPIRADO' : 'EM DIA'}
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Badge variant={company.active ? "default" : "destructive"}>
@@ -291,6 +484,35 @@ export const GlobalAdminDashboard = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="icon" 
+                            title="Resetar Trial (3 dias)"
+                            onClick={() => handleResetTrial(company)}
+                            className="bg-green-50 border-green-200 text-green-600"
+                          >
+                            <Clock className="w-4 h-4" />
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="icon" 
+                            title={company.canResetTrial ? "Remover Permissão Reset" : "Permitir Reset Trial"}
+                            onClick={() => toggleTrialReset(company)}
+                            className={company.canResetTrial ? "bg-amber-50 border-amber-200 text-amber-600" : ""}
+                          >
+                            <RefreshCw className="w-4 h-4" />
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="icon" 
+                            title="Editar Empresa"
+                            onClick={() => {
+                              setEditingCompany(company);
+                              setShowEditModal(true);
+                            }}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
                           <Button 
                             variant="outline" 
                             size="icon" 
@@ -317,6 +539,14 @@ export const GlobalAdminDashboard = () => {
                             title={company.active ? "Inativar" : "Ativar"}
                           >
                             <Power className="w-4 h-4" />
+                          </Button>
+                          <Button 
+                            variant="destructive" 
+                            size="icon"
+                            onClick={() => handleDeleteCompany(company)}
+                            title="Deletar Empresa"
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
                       </TableCell>
@@ -350,6 +580,57 @@ export const GlobalAdminDashboard = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Company Modal */}
+      <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Editar Empresa</DialogTitle>
+            <DialogDescription>
+              Atualize o nome e o login de acesso da unidade.
+            </DialogDescription>
+          </DialogHeader>
+          {editingCompany && (
+            <form onSubmit={handleEditCompany} className="space-y-4 pt-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">Nome da Empresa</Label>
+                <Input 
+                  id="edit-name" 
+                  name="name" 
+                  defaultValue={editingCompany.name} 
+                  required 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-username">Usuário (Login)</Label>
+                <Input 
+                  id="edit-username" 
+                  name="username" 
+                  defaultValue={editingCompany.user?.username} 
+                  required 
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-4">
+                <Button type="button" variant="ghost" onClick={() => setShowEditModal(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit">
+                  Salvar Alterações
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmationModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        description={confirmModal.description}
+        variant={confirmModal.variant}
+      />
     </div>
   );
 };

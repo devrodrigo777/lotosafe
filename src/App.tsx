@@ -11,7 +11,7 @@ import { InstructionList } from '@/components/InstructionList';
 import { AdminDashboard } from '@/components/AdminDashboard';
 import { GlobalAdminDashboard } from '@/components/GlobalAdminDashboard';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { ShieldAlert, MapPin, Loader2, Building2, AlertCircle } from 'lucide-react';
+import { ShieldAlert, MapPin, Loader2, Building2, AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { auth, signOut } from '@/firebase';
 import { motion, AnimatePresence } from 'motion/react';
@@ -20,13 +20,37 @@ import { Toaster } from 'sonner';
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { InstructionView } from '@/components/InstructionView';
+import { TrialBanner } from '@/components/TrialBanner';
+import { TrialExpired } from '@/components/TrialExpired';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { db, doc, updateDoc } from '@/firebase';
 
 function AppContent() {
-  const { user, userData, loading: authLoading, isGlobalAdmin } = useAuth();
+  const { user, userData, companyData, loading: authLoading, isGlobalAdmin, isTrialExpired } = useAuth();
   const { currentCompanies, loading: locLoading, error: locError, location } = useLocation();
+  const [showExtendedModal, setShowExtendedModal] = useState(false);
   
   // Fallback for logged in users without a valid role/profile
   const [showProfileError, setShowProfileError] = useState(false);
+  
+  useEffect(() => {
+    if (companyData?.isTrialExtended) {
+      setShowExtendedModal(true);
+    }
+  }, [companyData]);
+
+  const closeExtendedModal = async () => {
+    setShowExtendedModal(false);
+    if (companyData?.id) {
+      try {
+        await updateDoc(doc(db, 'companies', companyData.id), {
+          isTrialExtended: false
+        });
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  };
   
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -48,10 +72,22 @@ function AppContent() {
   }
 
   return (
+    <>
     <Routes>
       <Route path="/instruction/:id" element={<InstructionView />} />
       <Route path="/" element={
         <div className="min-h-screen bg-slate-50/50">
+          {user && !user.isAnonymous && userData?.role === 'company' && companyData?.trialExpiresAt && companyData?.licenseType !== 'lifetime' && !isTrialExpired && (
+            (() => {
+              const expiry = companyData.trialExpiresAt.toDate ? companyData.trialExpiresAt.toDate() : new Date(companyData.trialExpiresAt);
+              const diff = expiry.getTime() - Date.now();
+              const days = diff / (1000 * 60 * 60 * 24);
+              if (days <= 3) {
+                return <TrialBanner expiresAt={companyData.trialExpiresAt} licenseType={companyData.licenseType} />;
+              }
+              return null;
+            })()
+          )}
           <Navbar />
           
           <main className="max-w-7xl mx-auto px-4 py-8">
@@ -68,7 +104,9 @@ function AppContent() {
             ) : isGlobalAdmin ? (
               <GlobalAdminDashboard />
             ) : user && !user.isAnonymous && userData?.role === 'company' ? (
-              userData.companyId ? (
+              isTrialExpired ? (
+                <TrialExpired company={companyData} onReset={() => {}} />
+              ) : userData.companyId ? (
                 <AdminDashboard companyId={userData.companyId} />
               ) : (
                 <Alert variant="destructive">
@@ -158,6 +196,28 @@ function AppContent() {
       } />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+
+    <Dialog open={showExtendedModal} onOpenChange={closeExtendedModal}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <RefreshCw className="w-5 h-5 text-green-500" />
+            Período Estendido
+          </DialogTitle>
+          <DialogDescription>
+            Seu período de demonstração foi estendido por mais 3 dias sem custo adicional.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="bg-green-50 p-4 rounded-2xl flex items-start gap-3 text-green-700 text-sm">
+          <ShieldAlert className="w-5 h-5 shrink-0" />
+          <p>Aproveite para explorar todas as funcionalidades de segurança do EasyLOTOTO.</p>
+        </div>
+        <DialogFooter>
+          <Button onClick={closeExtendedModal} className="w-full">Entendido</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 

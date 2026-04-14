@@ -8,15 +8,22 @@ export interface Company {
   };
   adminEmail: string;
   createdAt: any;
+  trialExpiresAt?: any;
+  canResetTrial?: boolean;
+  status?: 'active' | 'expired' | 'inactive';
+  licenseType?: 'trial' | 'monthly' | 'lifetime';
+  isTrialExtended?: boolean;
 }
 
 export interface InstructionStep {
   id: string;
-  type: 'text' | 'checkbox' | 'image' | 'single_choice' | 'multi_choice' | 'heading';
+  type: 'text' | 'checkbox' | 'image' | 'single_choice' | 'multi_choice' | 'heading' | 'separator';
   label: string;
   options?: string[];
   required?: boolean;
   value?: any;
+  hideNumber?: boolean;
+  backgroundColor?: string;
 }
 
 export interface Instruction {

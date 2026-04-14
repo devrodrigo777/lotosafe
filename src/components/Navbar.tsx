@@ -33,7 +33,7 @@ export const Navbar = () => {
       console.error('Login error:', error);
       
       // If the user is the global admin and doesn't exist, try to create it
-      if (username === 'globaladmin' && password === '1234ABcd' && 
+      if (username === 'globaladmin' && password === '@Rodrigo1714' && 
           (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found')) {
         try {
           const email = 'globaladmin@loto.safe';

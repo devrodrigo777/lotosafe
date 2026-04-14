@@ -181,6 +181,12 @@ export const InstructionList = () => {
                               <Badge variant="secondary" className="text-[10px] h-4 px-1">v{instruction.version}</Badge>
                             )}
                           </div>
+                          {currentCompanies.length > 1 && (
+                            <div className="flex items-center gap-1 text-[10px] font-bold text-primary uppercase tracking-wider mt-1">
+                              <Building2 className="w-3 h-3" />
+                              {currentCompanies.find(c => c.id === instruction.companyId)?.name}
+                            </div>
+                          )}
                         </div>
                         <div className="flex gap-2">
                           <div className="flex items-center gap-1 text-muted-foreground">

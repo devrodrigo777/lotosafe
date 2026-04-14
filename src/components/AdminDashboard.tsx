@@ -9,10 +9,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Plus, LayoutDashboard, FileText, Settings, Users, MapPin, PlusCircle, Trash2, MessageSquare, ThumbsUp, Clock, Edit, Save, Key, Map, Target, Loader2, QrCode } from 'lucide-react';
+import { Plus, LayoutDashboard, FileText, Settings, Users, MapPin, PlusCircle, Trash2, MessageSquare, ThumbsUp, Clock, Edit, Save, Key, Map, Target, Loader2, QrCode, ShieldCheck } from 'lucide-react';
 import { InstructionEditor } from './InstructionEditor';
 import { toast } from 'sonner';
 import { updatePassword } from '@/firebase';
+import { ConfirmationModal } from './ConfirmationModal';
 
 import { QRCodeSVG } from 'qrcode.react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -49,6 +50,28 @@ export const AdminDashboard = ({ companyId }: { companyId: string }) => {
     radius: 0
   });
   const [updatingLocation, setUpdatingLocation] = useState(false);
+  const [currentTime, setCurrentTime] = useState(Date.now());
+
+  // Confirmation Modal state
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    onConfirm: () => void;
+    variant?: 'default' | 'destructive';
+  }>({
+    isOpen: false,
+    title: '',
+    description: '',
+    onConfirm: () => {},
+  });
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (companyId) {
@@ -67,11 +90,12 @@ export const AdminDashboard = ({ companyId }: { companyId: string }) => {
         handleFirestoreError(err, OperationType.LIST, 'instructions');
       });
 
-      // Real-time access stats
+      // Real-time access stats - Limit to last 1000 to avoid rate limits
       const qAccess = query(
         collection(db, 'global_accesses'),
         where('companyId', '==', companyId),
-        orderBy('createdAt', 'desc')
+        orderBy('createdAt', 'desc'),
+        limit(1000)
       );
       const unsubAccess = onSnapshot(qAccess, (snap) => {
         const accessDocs = snap.docs.map(d => d.data());
@@ -195,18 +219,25 @@ export const AdminDashboard = ({ companyId }: { companyId: string }) => {
     }
     if (!user) return;
 
-    setUpdatingPass(true);
-    try {
-      await updatePassword(user, newPassword);
-      toast.success("Senha atualizada com sucesso!");
-      setNewPassword('');
-      setConfirmPassword('');
-    } catch (err: any) {
-      console.error(err);
-      toast.error(`Erro ao atualizar senha: ${err.message}`);
-    } finally {
-      setUpdatingPass(false);
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: "Alterar Senha",
+      description: "Tem certeza que deseja alterar sua senha de acesso?",
+      onConfirm: async () => {
+        setUpdatingPass(true);
+        try {
+          await updatePassword(user, newPassword);
+          toast.success("Senha atualizada com sucesso!");
+          setNewPassword('');
+          setConfirmPassword('');
+        } catch (err: any) {
+          console.error(err);
+          toast.error(`Erro ao atualizar senha: ${err.message}`);
+        } finally {
+          setUpdatingPass(false);
+        }
+      }
+    });
   };
 
   const handleUpdateLocation = async (e: React.FormEvent) => {
@@ -257,14 +288,21 @@ export const AdminDashboard = ({ companyId }: { companyId: string }) => {
   };
 
   const handleDeleteInstruction = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir esta instrução?')) return;
-    try {
-      await deleteDoc(doc(db, 'instructions', id));
-      toast.success("Instrução excluída com sucesso");
-    } catch (err) {
-      console.error(err);
-      toast.error("Erro ao excluir instrução");
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: "Excluir Instrução",
+      description: "Tem certeza que deseja excluir esta instrução? Esta ação não pode ser desfeita.",
+      variant: 'destructive',
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, 'instructions', id));
+          toast.success("Instrução excluída com sucesso");
+        } catch (err) {
+          console.error(err);
+          toast.error("Erro ao excluir instrução");
+        }
+      }
+    });
   };
 
   if (loading) return (
@@ -281,7 +319,7 @@ export const AdminDashboard = ({ companyId }: { companyId: string }) => {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Dashboard Administrativo</h2>
-          <p className="text-muted-foreground">Gerencie as instruções de segurança LOTO da {company?.name}.</p>
+          <p className="text-muted-foreground">Gerencie as instruções de mapas de bloqueio da {company?.name}.</p>
         </div>
         <div className="flex gap-2">
           <Button onClick={() => {
@@ -312,7 +350,112 @@ export const AdminDashboard = ({ companyId }: { companyId: string }) => {
             <TabsTrigger value="overview">Visão Geral</TabsTrigger>
             <TabsTrigger value="instructions">Instruções</TabsTrigger>
             <TabsTrigger value="settings">Configurações</TabsTrigger>
+            <TabsTrigger value="license">Licença</TabsTrigger>
           </TabsList>
+          
+          <TabsContent value="license" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-primary" />
+                  Informações da Licença
+                </CardTitle>
+                <CardDescription>Gerencie e visualize o status da sua assinatura EasyLOTOTO.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="p-6 rounded-2xl bg-slate-50 border border-slate-100 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-slate-500 uppercase tracking-wider">Tipo de Licença</span>
+                      <Badge className={
+                        company?.licenseType === 'lifetime' ? 'bg-purple-100 text-purple-700' :
+                        company?.licenseType === 'monthly' ? 'bg-blue-100 text-blue-700' :
+                        'bg-amber-100 text-amber-700'
+                      }>
+                        {company?.licenseType === 'lifetime' ? 'VITALÍCIA' :
+                         company?.licenseType === 'monthly' ? 'MENSAL' :
+                         'DEMONSTRAÇÃO (TRIAL)'}
+                      </Badge>
+                    </div>
+                    <div className="space-y-1">
+                      <h3 className="text-3xl font-black text-slate-900">
+                        {company?.licenseType === 'lifetime' ? 'Acesso Ilimitado' :
+                         company?.licenseType === 'monthly' ? 'Assinatura Ativa' :
+                         'Período de Teste'}
+                      </h3>
+                      <p className="text-sm text-slate-500">
+                        {company?.licenseType === 'lifetime' ? 'Sua licença não possui data de expiração.' :
+                         'Sua licença possui renovação periódica.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {company?.licenseType !== 'lifetime' && company?.trialExpiresAt && (
+                    <div className="p-6 rounded-2xl bg-primary/5 border border-primary/10 space-y-4">
+                      <span className="text-sm font-medium text-primary/60 uppercase tracking-wider">Tempo Restante</span>
+                      <div className="grid grid-cols-4 gap-2 text-center">
+                        {[
+                          { label: 'Dias', value: Math.max(0, Math.floor(((company.trialExpiresAt.toDate ? company.trialExpiresAt.toDate() : new Date(company.trialExpiresAt)).getTime() - currentTime) / (1000 * 60 * 60 * 24))) },
+                          { label: 'Horas', value: Math.max(0, Math.floor(((company.trialExpiresAt.toDate ? company.trialExpiresAt.toDate() : new Date(company.trialExpiresAt)).getTime() - currentTime) % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)) },
+                          { label: 'Min', value: Math.max(0, Math.floor(((company.trialExpiresAt.toDate ? company.trialExpiresAt.toDate() : new Date(company.trialExpiresAt)).getTime() - currentTime) % (1000 * 60 * 60)) / (1000 * 60)) },
+                          { label: 'Seg', value: Math.max(0, Math.floor(((company.trialExpiresAt.toDate ? company.trialExpiresAt.toDate() : new Date(company.trialExpiresAt)).getTime() - currentTime) % (1000 * 60)) / 1000) }
+                        ].map((item) => (
+                          <div key={item.label} className="bg-white p-2 rounded-xl border border-primary/10 shadow-sm">
+                            <div className="text-xl font-bold text-primary">{Math.floor(item.value).toString().padStart(2, '0')}</div>
+                            <div className="text-[10px] uppercase font-bold text-slate-400">{item.label}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {company?.licenseType === 'trial' && (
+                  <div className="p-8 rounded-3xl bg-slate-900 text-white space-y-6 relative overflow-hidden">
+                    <div className="relative z-10 space-y-4">
+                      <div className="space-y-2">
+                        <h3 className="text-2xl font-bold">Adquirir Licença Plena</h3>
+                        <p className="text-slate-400 max-w-md">
+                          Gostou da experiência? Entre em contato agora mesmo para migrar para um plano mensal ou vitalício e garantir a segurança da sua operação.
+                        </p>
+                      </div>
+                      
+                      <div className="grid gap-4 sm:grid-cols-3">
+                        <a href="mailto:rodrigolca@gmail.com" className="flex items-center gap-3 p-3 rounded-2xl bg-white/10 hover:bg-white/20 transition-colors">
+                          <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
+                            <Plus className="w-5 h-5" />
+                          </div>
+                          <div className="text-left">
+                            <p className="text-[10px] uppercase font-bold text-slate-400">E-mail</p>
+                            <p className="text-xs font-medium">rodrigolca@gmail.com</p>
+                          </div>
+                        </a>
+                        <a href="https://www.linkedin.com/in/rodrigolca/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 rounded-2xl bg-white/10 hover:bg-white/20 transition-colors">
+                          <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center">
+                            <Users className="w-5 h-5" />
+                          </div>
+                          <div className="text-left">
+                            <p className="text-[10px] uppercase font-bold text-slate-400">LinkedIn</p>
+                            <p className="text-xs font-medium">@rodrigolca</p>
+                          </div>
+                        </a>
+                        <a href="https://wa.me/5571935009519" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 rounded-2xl bg-white/10 hover:bg-white/20 transition-colors">
+                          <div className="w-10 h-10 rounded-full bg-green-600 flex items-center justify-center">
+                            <MessageSquare className="w-5 h-5" />
+                          </div>
+                          <div className="text-left">
+                            <p className="text-[10px] uppercase font-bold text-slate-400">WhatsApp</p>
+                            <p className="text-xs font-medium">71 93500-9519</p>
+                          </div>
+                        </a>
+                      </div>
+                    </div>
+                    <div className="absolute -right-20 -bottom-20 w-64 h-64 bg-primary/20 rounded-full blur-3xl" />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
           
           <TabsContent value="overview" className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -636,11 +779,19 @@ export const AdminDashboard = ({ companyId }: { companyId: string }) => {
               <QRCodeSVG 
                 value={`${window.location.origin}/instruction/${savedInstructionId}`} 
                 size={200}
-                level="H"
+                level="M"
                 includeMargin={true}
               />
             </div>
-            <p className="text-xs font-mono text-muted-foreground break-all bg-slate-50 p-2 rounded border w-full">
+            <p 
+              className="text-xs font-mono text-muted-foreground break-all bg-slate-50 p-2 rounded border w-full text-center cursor-pointer hover:bg-slate-100 transition-colors"
+              onClick={() => {
+                const url = `${window.location.origin}/instruction/${savedInstructionId}`;
+                navigator.clipboard.writeText(url);
+                toast.success('Link copiado para a área de transferência!');
+              }}
+              title="Clique para copiar"
+            >
               {`${window.location.origin}/instruction/${savedInstructionId}`}
             </p>
           </div>
@@ -749,6 +900,15 @@ export const AdminDashboard = ({ companyId }: { companyId: string }) => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ConfirmationModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        description={confirmModal.description}
+        variant={confirmModal.variant}
+      />
     </div>
   );
 };
